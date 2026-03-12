@@ -1,0 +1,12 @@
+__pycache__/
+*.py[oc]
+wheels/
+*.egg-info
+.DS_Store
+
+.venv
+data/
+build/
+dist/
+
+.vscode/
