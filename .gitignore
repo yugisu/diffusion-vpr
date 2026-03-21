@@ -13,3 +13,4 @@ dist/
 .claude
 
 .env
+lightning_logs/

@@ -44,3 +44,6 @@ satdifuser = { path = "../SatDiFuser" }
 
 [tool.ty.environment]
 extra-paths = ["../SatDiFuser"]
+
+[tool.ty.rules]
+unresolved-attribute = "ignore"
