@@ -4,6 +4,7 @@ mkdir -p data
 # VisLoc example ds
 uvx gdown 16tY7tPZiNIoyAhknvyXnp0jAfccIcHtL -O visloc_example.zip
 unzip visloc_example.zip -d data/visloc_example
+mv data/visloc_example/'satellite_ coordinates_range.csv' data/visloc_example/satellite_coordinates_range.csv
 rm -rf visloc_example.zip
 
 # Checkpoints

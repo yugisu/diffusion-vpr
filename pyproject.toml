@@ -13,6 +13,8 @@ dependencies = [
     "matplotlib>=3.10.8",
     "satdifuser",
     "lightning>=2.6.1",
+    "ipywidgets>=8.1.8",
+    "setuptools<81",
 ]
 
 [dependency-groups]
@@ -38,7 +40,7 @@ line-ending = "lf"
 py-modules = []
 
 [tool.uv.sources]
-satdifuser = { path = "../SatDiFuser", editable = true }
+satdifuser = { path = "../SatDiFuser" }
 
 [tool.ty.environment]
 extra-paths = ["../SatDiFuser"]
