@@ -1202,7 +1202,7 @@ requires-dist = [
     { name = "lightning", specifier = ">=2.6.1" },
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "numpy", specifier = "==1.26.3" },
-    { name = "satdifuser", directory = "../SatDiFuser" },
+    { name = "satdifuser", editable = "../SatDiFuser" },
     { name = "setuptools", specifier = "<81" },
 ]
 
@@ -4401,7 +4401,7 @@ wheels = [
 [[package]]
 name = "satdifuser"
 version = "0.1.0"
-source = { directory = "../SatDiFuser" }
+source = { editable = "../SatDiFuser" }
 dependencies = [
     { name = "accelerate" },
     { name = "diffusers" },

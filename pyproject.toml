@@ -40,7 +40,7 @@ line-ending = "lf"
 py-modules = []
 
 [tool.uv.sources]
-satdifuser = { path = "../SatDiFuser" }
+satdifuser = { path = "../SatDiFuser", editable = true }
 
 [tool.ty.environment]
 extra-paths = ["../SatDiFuser"]
