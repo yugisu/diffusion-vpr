@@ -23,6 +23,7 @@ dev = ["ruff>=0.14.9"]
 [tool.ruff]
 extend-include = ["*.ipynb"]
 indent-width = 2
+line-length = 120
 
 [tool.ruff.lint]
 extend-select = ["I"]
