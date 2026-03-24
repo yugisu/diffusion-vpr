@@ -1,0 +1,203 @@
+import random
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import rasterio
+from PIL import Image
+from torch.utils.data import Dataset
+
+
+def _read_sat_bounds(root: Path, flight_id: str) -> tuple[float, float, float, float]:
+  """Returns (lat_min, lon_min, lat_max, lon_max) from satellite_coordinates_range.csv."""
+  df = pd.read_csv(root / "satellite_coordinates_range.csv")
+  row = df[df["mapname"] == f"satellite{flight_id}.tif"].iloc[0]
+  return (
+    float(row["RB_lat_map"]),
+    float(row["LT_lon_map"]),
+    float(row["LT_lat_map"]),
+    float(row["RB_lon_map"]),
+  )
+
+
+class UAVDataset(Dataset):
+  """VisLoc UAV drone images. Used as the query set for evaluation only — never for training."""
+
+  def __init__(self, root: Path, flight_id: str, transform=None):
+    self.drone_dir = root / flight_id / "drone"
+    self.transform = transform
+    df = pd.read_csv(root / flight_id / f"{flight_id}.csv")
+    self.records = df[["filename", "lat", "lon"]].reset_index(drop=True)
+
+  def __len__(self) -> int:
+    return len(self.records)
+
+  def __getitem__(self, idx: int):
+    row = self.records.iloc[idx]
+    img = Image.open(self.drone_dir / row["filename"]).convert("RGB")
+    if self.transform is not None:
+      img = self.transform(img)
+    return img, float(row["lat"]), float(row["lon"])
+
+
+class SatChunkDataset(Dataset):
+  """Fixed, evenly-tiled satellite chunks for the retrieval reference database.
+
+  The full tiff is loaded into RAM at init; chunks are pure numpy slices.
+
+  At 0.3 m/px satellite GSD, chunk_pixels=256 covers ~76.8m per side —
+  large enough to contain any UAV image footprint (25–50m) with margin.
+  stride_pixels=128 (50% overlap) ensures every GPS point falls in ≥4 chunks.
+
+  Exposes `gt_chunks` for use with build_ground_truth().
+
+  Args:
+    root:          VisLoc dataset root.
+    flight_id:     Flight identifier (e.g. "03").
+    chunk_pixels:  Crop size in original tiff pixels (controls ground coverage).
+    stride_pixels: Stride in original tiff pixels between chunk origins.
+    output_size:   Spatial dims of the returned image after resize.
+    transform:     Applied to each PIL image before returning.
+  """
+
+  def __init__(
+    self,
+    root: Path,
+    flight_id: str,
+    chunk_pixels: int = 256,
+    stride_pixels: int = 128,
+    output_size: int = 256,
+    transform=None,
+  ):
+    self.chunk_pixels = chunk_pixels
+    self.output_size = output_size
+    self.transform = transform
+
+    lat_min, lon_min, lat_max, lon_max = _read_sat_bounds(root, flight_id)
+
+    sat_path = root / flight_id / f"satellite{flight_id}.tif"
+    with rasterio.open(sat_path) as src:
+      data = src.read([1, 2, 3])  # (3, H, W)
+    self._img = np.transpose(data, (1, 2, 0))  # (H, W, 3) uint8
+    orig_h, orig_w = self._img.shape[:2]
+
+    self._chunks: list[tuple[int, int, float, float]] = []
+    self._bboxes: list[tuple[float, float, float, float]] = []
+
+    for y in range(0, orig_h - chunk_pixels, stride_pixels):
+      for x in range(0, orig_w - chunk_pixels, stride_pixels):
+        cx = x + chunk_pixels // 2
+        cy = y + chunk_pixels // 2
+        lat = lat_max - (cy / orig_h) * (lat_max - lat_min)
+        lon = lon_min + (cx / orig_w) * (lon_max - lon_min)
+        self._chunks.append((x, y, lat, lon))
+
+        blat_max = lat_max - (y / orig_h) * (lat_max - lat_min)
+        blat_min = lat_max - ((y + chunk_pixels) / orig_h) * (lat_max - lat_min)
+        blon_min = lon_min + (x / orig_w) * (lon_max - lon_min)
+        blon_max = lon_min + ((x + chunk_pixels) / orig_w) * (lon_max - lon_min)
+        self._bboxes.append((blat_min, blon_min, blat_max, blon_max))
+
+  @property
+  def gt_chunks(self) -> list[dict]:
+    """List of {bbox_gps} dicts compatible with build_ground_truth()."""
+    return [{"bbox_gps": bb} for bb in self._bboxes]
+
+  def __len__(self) -> int:
+    return len(self._chunks)
+
+  def __getitem__(self, idx: int):
+    x, y, lat, lon = self._chunks[idx]
+    crop = self._img[y : y + self.chunk_pixels, x : x + self.chunk_pixels]
+    img = Image.fromarray(crop).resize(
+      (self.output_size, self.output_size), Image.LANCZOS
+    )
+    if self.transform is not None:
+      img = self.transform(img)
+    return img, lat, lon
+
+
+class SatSimDataset(Dataset):
+  """Random crops from the satellite tiff for self-supervised training.
+
+  The full tiff is loaded into RAM at init so that all crop reads are pure
+  numpy slices — no file I/O or decompression on the training hot path.
+
+  Returns two views of the same geographic region as a positive pair:
+  - sat_view:  larger crop, lightly augmented — stands in for the satellite reference.
+  - uav_view:  smaller crop of the same centre, heavily augmented — simulates a UAV image.
+
+  At 0.3 m/px satellite GSD:
+  - uav_crop_range=(80, 170) → 24–51m ground coverage, matching real UAV FOV.
+  - sat_crop_range=(256, 512) → 77–154m, providing wider context for the reference.
+
+  Args:
+    root:            VisLoc dataset root.
+    flight_id:       Flight identifier (e.g. "03").
+    output_size:     Both views are returned at this square resolution.
+    sat_crop_range:  (min, max) crop size in original tiff pixels for the satellite view.
+    uav_crop_range:  (min, max) crop size for the UAV-simulated view.
+    sat_transform:   Transform applied to the satellite PIL crop.
+    uav_transform:   Transform applied to the UAV-simulated PIL crop.
+    n_samples:       Virtual dataset length / epoch size.
+  """
+
+  def __init__(
+    self,
+    root: Path,
+    flight_id: str,
+    output_size: int = 256,
+    sat_crop_range: tuple[int, int] = (256, 512),
+    uav_crop_range: tuple[int, int] = (80, 170),
+    sat_transform=None,
+    uav_transform=None,
+    n_samples: int = 10_000,
+  ):
+    self.output_size = output_size
+    self.sat_crop_range = sat_crop_range
+    self.uav_crop_range = uav_crop_range
+    self.sat_transform = sat_transform
+    self.uav_transform = uav_transform
+    self.n_samples = n_samples
+
+    self._lat_min, self._lon_min, self._lat_max, self._lon_max = _read_sat_bounds(
+      root, flight_id
+    )
+
+    sat_path = root / flight_id / f"satellite{flight_id}.tif"
+    with rasterio.open(sat_path) as src:
+      data = src.read([1, 2, 3])  # (3, H, W)
+    self._img = np.transpose(data, (1, 2, 0))  # (H, W, 3) uint8
+    self.orig_h, self.orig_w = self._img.shape[:2]
+
+  def __len__(self) -> int:
+    return self.n_samples
+
+  def _read_crop(self, cx: int, cy: int, crop_size: int) -> Image.Image:
+    x0 = max(0, cx - crop_size // 2)
+    y0 = max(0, cy - crop_size // 2)
+    crop = self._img[y0 : y0 + crop_size, x0 : x0 + crop_size]
+    return Image.fromarray(crop).resize(
+      (self.output_size, self.output_size), Image.LANCZOS
+    )
+
+  def __getitem__(self, idx: int):
+    sat_crop = random.randint(*self.sat_crop_range)
+    uav_crop = random.randint(*self.uav_crop_range)
+    margin = sat_crop // 2
+
+    cx = random.randint(margin, self.orig_w - margin)
+    cy = random.randint(margin, self.orig_h - margin)
+
+    lat = self._lat_max - (cy / self.orig_h) * (self._lat_max - self._lat_min)
+    lon = self._lon_min + (cx / self.orig_w) * (self._lon_max - self._lon_min)
+
+    sat_img = self._read_crop(cx, cy, sat_crop)
+    uav_img = self._read_crop(cx, cy, uav_crop)
+
+    if self.sat_transform is not None:
+      sat_img = self.sat_transform(sat_img)
+    if self.uav_transform is not None:
+      uav_img = self.uav_transform(uav_img)
+
+    return sat_img, uav_img, lat, lon
