@@ -1,4 +1,6 @@
+####################
 # Data
+####################
 mkdir -p data
 cd /workspace/data
 
@@ -14,7 +16,18 @@ unzip visloc.zip -d visloc
 mv visloc/'satellite_ coordinates_range.csv' visloc/satellite_coordinates_range.csv
 rm -rf visloc.zip
 
+# ViLD dataset
+wget https://zenodo.org/records/19223815/files/ViLD_dataset.zip?download=1 -O ViLD_dataset.zip
+unzip -q ViLD_dataset.zip -d vild
+
+# SSL4EO-S12 dataset
+# TODO:
+
+
+
+####################
 # Checkpoints
+####################
 mkdir -p checkpoints
 cd /workspace/checkpoints
 
