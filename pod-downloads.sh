@@ -18,7 +18,8 @@ rm -rf visloc.zip
 
 # ViLD dataset
 wget https://zenodo.org/records/19223815/files/ViLD_dataset.zip?download=1 -O ViLD_dataset.zip
-unzip -q ViLD_dataset.zip -d vild
+unzip -q ViLD_dataset.zip -d ViLD_dataset
+rm -rf ViLD_dataset.zip
 
 # SSL4EO-S12 dataset
 # TODO:
