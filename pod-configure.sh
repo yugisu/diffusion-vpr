@@ -18,3 +18,6 @@ cp .env.example .env
 # Auth
 gh auth login --web
 gh auth setup-git
+
+git config --global --add user.name ""
+git config --global --add user.email ""

@@ -21,10 +21,11 @@ wget https://zenodo.org/records/19223815/files/ViLD_dataset.zip?download=1 -O Vi
 unzip -q ViLD_dataset.zip -d ViLD_dataset
 rm -rf ViLD_dataset.zip
 
-# SSL4EO-S12 dataset
-# TODO:
-
-
+# SSL4EO-S12 example ds
+uvx gdown 1sRWcYbaWs-efXza6kw03GlJQdZHq5iRN -O SSL4EO-S12_example.tar.gz
+mkdir -p SSL4EO-S12_example
+tar -xzf SSL4EO-S12_example.tar.gz -C ./SSL4EO-S12_example/
+rm -rf SSL4EO-S12_example.tar.gz
 
 ####################
 # Checkpoints
