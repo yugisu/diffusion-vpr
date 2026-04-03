@@ -14,11 +14,11 @@ class FAISSRetriever:
     g_np = np.ascontiguousarray(
       database_embeddings.detach().cpu().numpy().astype(np.float32)
     )
-    self.index.add(g_np)
+    self.index.add(g_np)  # ty:ignore[missing-argument]
 
   def search(self, query_embeddings: torch.Tensor, k: int = 10):
     q_np = np.ascontiguousarray(
       query_embeddings.detach().cpu().numpy().astype(np.float32)
     )
-    distances, indices = self.index.search(q_np, k)
+    distances, indices = self.index.search(q_np, k)  # ty:ignore[missing-argument]
     return distances, indices

@@ -32,7 +32,7 @@ class UAVDataset(Dataset):
   def __len__(self) -> int:
     return len(self.records)
 
-  def __getitem__(self, idx: int):
+  def __getitem__(self, idx: int):  # ty:ignore[invalid-method-override]
     row = self.records.iloc[idx]
     img = Image.open(self.drone_dir / row["filename"]).convert("RGB")
     if self.transform is not None:
@@ -106,98 +106,10 @@ class SatChunkDataset(Dataset):
   def __len__(self) -> int:
     return len(self._chunks)
 
-  def __getitem__(self, idx: int):
+  def __getitem__(self, idx: int):  # ty:ignore[invalid-method-override]
     x, y, lat, lon = self._chunks[idx]
     crop = self._img[y : y + self.chunk_pixels, x : x + self.chunk_pixels]
-    img = Image.fromarray(crop).resize(
-      (self.output_size, self.output_size), Image.LANCZOS
-    )
+    img = Image.fromarray(crop).resize((self.output_size, self.output_size), Image.LANCZOS)
     if self.transform is not None:
       img = self.transform(img)
     return img, lat, lon
-
-
-class SatSimDataset(Dataset):
-  """Random crops from the satellite tiff for self-supervised training.
-
-  The full tiff is loaded into RAM at init so that all crop reads are pure
-  numpy slices — no file I/O or decompression on the training hot path.
-
-  Returns two views of the same geographic region as a positive pair:
-  - sat_view:  larger crop, lightly augmented — stands in for the satellite reference.
-  - uav_view:  smaller crop of the same centre, heavily augmented — simulates a UAV image.
-
-  At 0.3 m/px satellite GSD:
-  - uav_crop_range=(80, 170) → 24–51m ground coverage, matching real UAV FOV.
-  - sat_crop_range=(256, 512) → 77–154m, providing wider context for the reference.
-
-  Args:
-    root:            VisLoc dataset root.
-    flight_id:       Flight identifier (e.g. "03").
-    output_size:     Both views are returned at this square resolution.
-    sat_crop_range:  (min, max) crop size in original tiff pixels for the satellite view.
-    uav_crop_range:  (min, max) crop size for the UAV-simulated view.
-    sat_transform:   Transform applied to the satellite PIL crop.
-    uav_transform:   Transform applied to the UAV-simulated PIL crop.
-    n_samples:       Virtual dataset length / epoch size.
-  """
-
-  def __init__(
-    self,
-    root: Path,
-    flight_id: str,
-    output_size: int = 256,
-    sat_crop_range: tuple[int, int] = (256, 512),
-    uav_crop_range: tuple[int, int] = (80, 170),
-    sat_transform=None,
-    uav_transform=None,
-    n_samples: int = 10_000,
-  ):
-    self.output_size = output_size
-    self.sat_crop_range = sat_crop_range
-    self.uav_crop_range = uav_crop_range
-    self.sat_transform = sat_transform
-    self.uav_transform = uav_transform
-    self.n_samples = n_samples
-
-    self._lat_min, self._lon_min, self._lat_max, self._lon_max = _read_sat_bounds(
-      root, flight_id
-    )
-
-    sat_path = root / flight_id / f"satellite{flight_id}.tif"
-    with rasterio.open(sat_path) as src:
-      data = src.read([1, 2, 3])  # (3, H, W)
-    self._img = np.transpose(data, (1, 2, 0))  # (H, W, 3) uint8
-    self.orig_h, self.orig_w = self._img.shape[:2]
-
-  def __len__(self) -> int:
-    return self.n_samples
-
-  def _read_crop(self, cx: int, cy: int, crop_size: int) -> Image.Image:
-    x0 = max(0, cx - crop_size // 2)
-    y0 = max(0, cy - crop_size // 2)
-    crop = self._img[y0 : y0 + crop_size, x0 : x0 + crop_size]
-    return Image.fromarray(crop).resize(
-      (self.output_size, self.output_size), Image.LANCZOS
-    )
-
-  def __getitem__(self, idx: int):
-    sat_crop = random.randint(*self.sat_crop_range)
-    uav_crop = random.randint(*self.uav_crop_range)
-    margin = sat_crop // 2
-
-    cx = random.randint(margin, self.orig_w - margin)
-    cy = random.randint(margin, self.orig_h - margin)
-
-    lat = self._lat_max - (cy / self.orig_h) * (self._lat_max - self._lat_min)
-    lon = self._lon_min + (cx / self.orig_w) * (self._lon_max - self._lon_min)
-
-    sat_img = self._read_crop(cx, cy, sat_crop)
-    uav_img = self._read_crop(cx, cy, uav_crop)
-
-    if self.sat_transform is not None:
-      sat_img = self.sat_transform(sat_img)
-    if self.uav_transform is not None:
-      uav_img = self.uav_transform(uav_img)
-
-    return sat_img, uav_img, lat, lon
