@@ -51,7 +51,7 @@ def calculate_metrics(preds: np.ndarray, ground_truth: list[list[int]]) -> dict:
   }
 
 
-def plot_tsne(gallery: np.ndarray, query: np.ndarray) -> None:
+def plot_tsne(gallery: np.ndarray, query: np.ndarray) -> plt.Figure:
   # fmt: off
   acq_colors = ["#FF6B6B", "#4ECDC4"]
 
@@ -81,4 +81,4 @@ def plot_tsne(gallery: np.ndarray, query: np.ndarray) -> None:
   ax.set_ylabel("t-SNE Dimension 2")
   ax.grid(True, alpha=0.3)
   plt.tight_layout()
-  plt.show()
+  return fig

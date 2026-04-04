@@ -58,9 +58,9 @@ class SatChunkDataset(Dataset):
     self,
     root: Path,
     flight_id: str,
-    chunk_pixels: int = 256,
-    stride_pixels: int | None = None,
-    scale_factor: float = 1.0,
+    chunk_pixels: int = 512,
+    stride_pixels: int | None = 128,
+    scale_factor: float = 0.25,
     transform=None,
   ):
     self.chunk_pixels = chunk_pixels
@@ -90,12 +90,14 @@ class SatChunkDataset(Dataset):
         lat = lat_max - (cy / h) * (lat_max - lat_min)
         lon = lon_min + (cx / w) * (lon_max - lon_min)
         self._chunks.append((x, y, lat, lon))
-        self._bboxes.append((
-          lat_max - ((y + chunk_pixels) / h) * (lat_max - lat_min),  # lat_min (bottom edge)
-          lon_min + (x / w) * (lon_max - lon_min),                   # lon_min (left edge)
-          lat_max - (y / h) * (lat_max - lat_min),                   # lat_max (top edge)
-          lon_min + ((x + chunk_pixels) / w) * (lon_max - lon_min),  # lon_max (right edge)
-        ))
+        self._bboxes.append(
+          (
+            lat_max - ((y + chunk_pixels) / h) * (lat_max - lat_min),  # lat_min (bottom edge)
+            lon_min + (x / w) * (lon_max - lon_min),  # lon_min (left edge)
+            lat_max - (y / h) * (lat_max - lat_min),  # lat_max (top edge)
+            lon_min + ((x + chunk_pixels) / w) * (lon_max - lon_min),  # lon_max (right edge)
+          )
+        )
 
   @property
   def chunk_coords(self) -> list[tuple[float, float]]:

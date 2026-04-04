@@ -2,14 +2,16 @@ import math
 from typing import Literal
 
 import lightning as L
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn.functional as F
+import wandb
 from tqdm import tqdm
 
 from src.backbone import DiffusionSatBackbone
 from src.embedders import FuserEmbedder
-from src.evaluation import calculate_metrics
+from src.evaluation import calculate_metrics, plot_tsne
 from src.ldm_extractor import LDMExtractorCfg
 from src.losses import SpatialLoss
 from src.retrievers import FAISSRetriever
@@ -135,7 +137,7 @@ class FuserEmbedderModule(L.LightningModule):
 
   @torch.inference_mode()
   def on_validation_epoch_end(self):
-    if self.val_gallery_dataloader is None or not self._val_query_embs:
+    if self.val_gallery_dataloader is None or not self._val_query_embs or not self._val_gallery_embs:
       return
 
     query_embs = torch.stack(self._val_query_embs)
@@ -151,6 +153,15 @@ class FuserEmbedderModule(L.LightningModule):
     for name, value in metrics.items():
       self.log(f"val/{name}", value, prog_bar=True)
 
+    # Log t-SNE visualization of paired query/gallery embeddings.
+    gallery_embs = torch.stack(self._val_gallery_embs)
+    gt_indices = [g[0] for g in gt]
+    matched_gallery = gallery_embs[gt_indices]
+    fig = plot_tsne(matched_gallery.numpy(), query_embs.numpy())
+    if self.logger:
+      self.logger.experiment.log({"val/tsne": wandb.Image(fig)}, step=self.global_step)
+    plt.close(fig)
+
     # Clear validation state.
     self._val_gallery_retriever = None
     self._val_gallery_embs = None
@@ -159,7 +170,7 @@ class FuserEmbedderModule(L.LightningModule):
     self._val_query_coords = None
 
   # ------------------------------------------------------------------
-  # Optimiser
+  # Optimizer
   # ------------------------------------------------------------------
 
   def configure_optimizers(self):
