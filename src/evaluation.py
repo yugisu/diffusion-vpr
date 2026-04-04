@@ -3,23 +3,37 @@ import numpy as np
 from matplotlib.lines import Line2D
 from sklearn.manifold import TSNE
 
+from src.utils import flat_earth_dist_m
 
-def find_closest_references(
+
+def build_ground_truth(
   uav_coords: np.ndarray,
-  chunk_coords: list[tuple[float, float]],
-  top_k: int = 5,
+  chunk_bboxes: list[tuple[float, float, float, float]],
 ) -> list[list[int]]:
-  """For each UAV image, return the {top_k} closest chunk indices sorted by L2 distance based on coordinates.
+  """For each UAV image, return indices of chunks whose bbox contains the UAV GPS point,
+  sorted by distance from the UAV point to the chunk center.
+
+  Falls back to the single closest chunk if the point falls outside all bboxes.
 
   Args:
-    uav_coords:    (N, 2) array of (lat, lon) for each UAV query image.
-    chunk_coords:  List of (lat, lon) center coordinates for each gallery chunk.
+    uav_coords:   (N, 2) array of (lat, lon) for each UAV query image.
+    chunk_bboxes: List of (lat_min, lon_min, lat_max, lon_max) per chunk.
   """
-  chunks = np.array(chunk_coords)  # (M, 2)
+  bboxes = np.array(chunk_bboxes)  # (M, 4)
+  lat_mins, lon_mins, lat_maxs, lon_maxs = bboxes[:, 0], bboxes[:, 1], bboxes[:, 2], bboxes[:, 3]
+  center_lats = (lat_mins + lat_maxs) / 2
+  center_lons = (lon_mins + lon_maxs) / 2
   ground_truth = []
-  for coord in uav_coords:
-    dists = np.sum((chunks - coord) ** 2, axis=1)
-    ground_truth.append(np.argsort(dists)[:top_k].tolist())
+  for lat, lon in uav_coords:
+    mask = (lat_mins <= lat) & (lat <= lat_maxs) & (lon_mins <= lon) & (lon <= lon_maxs)
+    indices = np.where(mask)[0]
+    if len(indices) == 0:
+      dists = flat_earth_dist_m(lat, lon, center_lats, center_lons)
+      indices = np.array([np.argmin(dists)])
+    else:
+      dists = flat_earth_dist_m(lat, lon, center_lats[indices], center_lons[indices])
+      indices = indices[np.argsort(dists)]
+    ground_truth.append(indices.tolist())
   return ground_truth
 
 

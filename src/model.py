@@ -5,12 +5,11 @@ import lightning as L
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from src.backbone import DiffusionSatBackbone
 from src.embedders import FuserEmbedder
-from src.evaluation import build_ground_truth, calculate_metrics
+from src.evaluation import calculate_metrics
 from src.ldm_extractor import LDMExtractorCfg
 from src.losses import SpatialLoss
 from src.retrievers import FAISSRetriever
@@ -41,7 +40,7 @@ class FuserEmbedderModule(L.LightningModule):
     warmup_epochs: int = 5,
     max_train_epochs: int = 40,
     # Validation
-    val_gallery_dataloader: torch.utils.data.DataLoader | None =None,
+    val_gallery_dataloader: torch.utils.data.DataLoader | None = None,
   ):
     super().__init__()
     self.save_hyperparameters(ignore=["backbone", "val_gallery_dataloader"])
@@ -144,7 +143,7 @@ class FuserEmbedderModule(L.LightningModule):
 
     # Ground truth: for each query, the single closest gallery image by GPS distance.
     gallery_coords = np.array(self._val_gallery_coords)  # (N, 2)
-    query_coords = np.array(self._val_query_coords)      # (M, 2)
+    query_coords = np.array(self._val_query_coords)  # (M, 2)
     dists = np.sum((query_coords[:, None, :] - gallery_coords[None, :, :]) ** 2, axis=2)
     gt = [[int(np.argmin(d))] for d in dists]
 
@@ -158,7 +157,6 @@ class FuserEmbedderModule(L.LightningModule):
     self._val_gallery_coords = None
     self._val_query_embs = None
     self._val_query_coords = None
-
 
   # ------------------------------------------------------------------
   # Optimiser
