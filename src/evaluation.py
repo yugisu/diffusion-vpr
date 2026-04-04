@@ -4,18 +4,21 @@ from matplotlib.lines import Line2D
 from sklearn.manifold import TSNE
 
 
-def build_ground_truth(
-  uav_lats: np.ndarray,
-  uav_lons: np.ndarray,
-  chunks: list[dict],
+def find_closest_references(
+  uav_coords: np.ndarray,
+  chunk_coords: list[tuple[float, float]],
   top_k: int = 5,
 ) -> list[list[int]]:
-  """For each UAV image, return the {top_k} closest chunk indices sorted by L2 distance."""
-  chunk_lats = np.array([(c["bbox_gps"][0] + c["bbox_gps"][2]) / 2 for c in chunks])
-  chunk_lons = np.array([(c["bbox_gps"][1] + c["bbox_gps"][3]) / 2 for c in chunks])
+  """For each UAV image, return the {top_k} closest chunk indices sorted by L2 distance based on coordinates.
+
+  Args:
+    uav_coords:    (N, 2) array of (lat, lon) for each UAV query image.
+    chunk_coords:  List of (lat, lon) center coordinates for each gallery chunk.
+  """
+  chunks = np.array(chunk_coords)  # (M, 2)
   ground_truth = []
-  for lat, lon in zip(uav_lats, uav_lons):
-    dists = (chunk_lats - lat) ** 2 + (chunk_lons - lon) ** 2
+  for coord in uav_coords:
+    dists = np.sum((chunks - coord) ** 2, axis=1)
     ground_truth.append(np.argsort(dists)[:top_k].tolist())
   return ground_truth
 
