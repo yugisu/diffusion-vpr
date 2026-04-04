@@ -8,9 +8,7 @@ from torch import nn
 # ---------------------------------------------------------------------------
 
 
-def _batched_index_select(
-  input: torch.Tensor, dim: int, index: torch.Tensor
-) -> torch.Tensor:
+def _batched_index_select(input: torch.Tensor, dim: int, index: torch.Tensor) -> torch.Tensor:
   for ii in range(1, len(input.shape)):
     if ii != dim:
       index = index.unsqueeze(ii)
@@ -28,37 +26,19 @@ def _nearest_neighbors(
   num_matches: int | None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
   """Select `num_matches` NN pairs ordered by ascending distance."""
-  batch_size = input_maps.size(0)
   if num_matches is None or num_matches == -1:
     num_matches = input_maps.size(1)
 
-  topk_values, topk_indices = distances.topk(k=1, largest=False)
-  topk_values = topk_values.squeeze(-1)  # (B, HW)
-  topk_indices = topk_indices.squeeze(-1)  # (B, HW)
+  nn_dists, nn_indices = distances.topk(k=1, largest=False)
+  nn_dists = nn_dists.squeeze(-1)  # (B, HW)
+  nn_indices = nn_indices.squeeze(-1)  # (B, HW)
 
-  _, sorted_values_indices = torch.sort(topk_values, dim=1)
-  sorted_indices, _ = torch.sort(sorted_values_indices, dim=1)
+  # Select the num_matches input patches with smallest NN distances.
+  _, best_input_indices = nn_dists.topk(k=num_matches, largest=False)  # (B, num_matches)
+  best_candidate_indices = torch.gather(nn_indices, 1, best_input_indices)
 
-  mask = torch.stack(
-    [
-      torch.where(sorted_indices[i] < num_matches, True, False)
-      for i in range(batch_size)
-    ]
-  )
-
-  topk_indices_selected = topk_indices.masked_select(mask).reshape(
-    batch_size, num_matches
-  )
-  indices = (
-    torch.arange(0, topk_values.size(1))
-    .unsqueeze(0)
-    .repeat(batch_size, 1)
-    .to(topk_values.device)
-  )
-  indices_selected = indices.masked_select(mask).reshape(batch_size, num_matches)
-
-  filtered_input = _batched_index_select(input_maps, 1, indices_selected)
-  filtered_candidate = _batched_index_select(candidate_maps, 1, topk_indices_selected)
+  filtered_input = _batched_index_select(input_maps, 1, best_input_indices)
+  filtered_candidate = _batched_index_select(candidate_maps, 1, best_candidate_indices)
   return filtered_input, filtered_candidate
 
 
@@ -129,7 +109,7 @@ class SpatialLoss(nn.Module):
     invariance_coeff: float = 25.0,
     std_coeff: float = 25.0,
     cov_coeff: float = 1.0,
-    num_matches: int | None = None,
+    num_matches: int | None = 50,
   ):
     super().__init__()
 
@@ -159,26 +139,17 @@ class SpatialLoss(nn.Module):
 
     std_x = torch.sqrt(x.var(dim=0) + self.epsilon)
     std_y = torch.sqrt(y.var(dim=0) + self.epsilon)
-    std_loss = (
-      torch.mean(F.relu(self.gamma - std_x)) / 2
-      + torch.mean(F.relu(self.gamma - std_y)) / 2
-    )
+    std_loss = torch.mean(F.relu(self.gamma - std_x)) / 2 + torch.mean(F.relu(self.gamma - std_y)) / 2
 
     batch_size, num_features = x.shape
     cov_x = (x.T @ x) / (batch_size - 1)
     cov_y = (y.T @ y) / (batch_size - 1)
-    cov_loss = self._off_diagonal(cov_x).pow_(2).sum().div(num_features)
-    cov_loss += self._off_diagonal(cov_y).pow_(2).sum().div(num_features)
+    cov_loss = self._off_diagonal(cov_x).pow(2).sum().div(num_features)
+    cov_loss += self._off_diagonal(cov_y).pow(2).sum().div(num_features)
 
-    return (
-      self.invariance_coeff * invariance_loss
-      + self.std_coeff * std_loss
-      + self.cov_coeff * cov_loss
-    )
+    return self.invariance_coeff * invariance_loss + self.std_coeff * std_loss + self.cov_coeff * cov_loss
 
-  def _vicregl_maps_loss(
-    self, x: torch.Tensor, y: torch.Tensor
-  ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+  def _vicregl_maps_loss(self, x: torch.Tensor, y: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """VICRegL component losses on NN-matched feature pairs.
 
     Args:
@@ -189,27 +160,21 @@ class SpatialLoss(nn.Module):
     """
     invariance_loss = F.mse_loss(x, y)
 
-    std_x = torch.sqrt(x.var(dim=0) + self.epsilon)
-    std_y = torch.sqrt(y.var(dim=0) + self.epsilon)
-    std_loss = (
-      torch.mean(F.relu(self.gamma - std_x)) / 2
-      + torch.mean(F.relu(self.gamma - std_y)) / 2
-    )
+    # Pool all matched features: (B, num_matches, C) → (B * num_matches, C)
+    x_flat = x.reshape(-1, x.size(-1))
+    y_flat = y.reshape(-1, y.size(-1))
 
-    # Covariance computed per match position, averaged over positions.
-    x_t = x.permute(1, 0, 2)  # (num_matches, B, C)
-    y_t = y.permute(1, 0, 2)
-    x_t = x_t - x_t.mean(dim=-2, keepdim=True)
-    y_t = y_t - y_t.mean(dim=-2, keepdim=True)
+    std_x = torch.sqrt(x_flat.var(dim=0) + self.epsilon)
+    std_y = torch.sqrt(y_flat.var(dim=0) + self.epsilon)
+    std_loss = torch.mean(F.relu(self.gamma - std_x)) / 2 + torch.mean(F.relu(self.gamma - std_y)) / 2
 
-    sample_size, num_channels = x_t.shape[-2], x_t.shape[-1]
-    non_diag = ~torch.eye(num_channels, device=x.device, dtype=torch.bool)
-    cov_x = torch.einsum("...bc,...bd->...cd", x_t, x_t) / (sample_size - 1)
-    cov_y = torch.einsum("...bc,...bd->...cd", y_t, y_t) / (sample_size - 1)
-    cov_loss = (
-      cov_x[..., non_diag].pow(2).sum(-1) / num_channels
-      + cov_y[..., non_diag].pow(2).sum(-1) / num_channels
-    ).mean() / 2
+    num_samples, num_channels = x_flat.shape
+    x_flat = x_flat - x_flat.mean(dim=0)
+    y_flat = y_flat - y_flat.mean(dim=0)
+    cov_x = (x_flat.T @ x_flat) / (num_samples - 1)
+    cov_y = (y_flat.T @ y_flat) / (num_samples - 1)
+    cov_loss = self._off_diagonal(cov_x).pow(2).sum().div(num_channels)
+    cov_loss += self._off_diagonal(cov_y).pow(2).sum().div(num_channels)
 
     return (
       self.invariance_coeff * invariance_loss,
@@ -247,12 +212,8 @@ class SpatialLoss(nn.Module):
       return feat_loss
 
     # Location-based matching (when coordinates are available).
-    lm1_filt, lm1_nn = _nn_on_location(
-      locations_1, locations_2, maps_1, maps_2, self.num_matches
-    )
-    lm2_filt, lm2_nn = _nn_on_location(
-      locations_2, locations_1, maps_2, maps_1, self.num_matches
-    )
+    lm1_filt, lm1_nn = _nn_on_location(locations_1, locations_2, maps_1, maps_2, self.num_matches)
+    lm2_filt, lm2_nn = _nn_on_location(locations_2, locations_1, maps_2, maps_1, self.num_matches)
 
     linv1, lvar1, lcov1 = self._vicregl_maps_loss(lm1_filt, lm1_nn)
     linv2, lvar2, lcov2 = self._vicregl_maps_loss(lm2_filt, lm2_nn)
