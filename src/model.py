@@ -54,8 +54,8 @@ class FuserEmbedderModule(L.LightningModule):
 
     # Trainable head.
     self.embedder = FuserEmbedder(
-      save_timesteps=self.ldm_extractor.save_timesteps,
-      feature_dims=self.ldm_extractor.collected_dims,
+      save_timesteps=self.backbone.ldm_extractor.save_timesteps,
+      feature_dims=self.backbone.ldm_extractor.collected_dims,
     )
 
     self.criterion = SpatialLoss(alpha=vicreg_alpha)

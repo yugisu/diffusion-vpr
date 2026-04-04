@@ -1,3 +1,4 @@
+print("Running train.py...")
 import os
 import warnings
 from pathlib import Path
@@ -19,8 +20,11 @@ from src.datasets.visloc import (
 )
 from src.model import FuserEmbedderModule
 
+print("Collecting .env...")
+
 # Load .env BEFORE accessing env vars.
 load_dotenv()
+
 
 VISLOC_ROOT = Path(os.environ["VISLOC_ROOT"])
 DIFFUSIONSAT_256_CHCKPT = Path(os.environ["DIFFUSIONSAT_256_CHCKPT"])
@@ -28,7 +32,8 @@ RANDOM_SEED = 42
 DEVICE = torch.device("cuda")
 NUM_WORKERS = 4
 BATCH_SIZE = 32
-MAX_EPOCHS = 20
+# MAX_EPOCHS = 20
+MAX_EPOCHS = 1
 TRAIN_FLIGHT_IDS = ["01", "02", "05"]
 VAL_FLIGHT_ID = "03"
 
@@ -41,6 +46,7 @@ warnings.filterwarnings("ignore", ".*does not have many workers.*")
 # Training dataloader
 # ---------------------------------------------------------------------------
 
+print("Setting up training datasets...")
 
 def train_collate_fn(batch: list[tuple]) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
   """Apply two independent UAV-sim augmentations per satellite chunk to produce a pair of views."""
@@ -73,6 +79,8 @@ train_loader = DataLoader(
 # Validation dataloaders
 # ---------------------------------------------------------------------------
 
+print("Setting up validation datasets...")
+
 val_query_ds = UAVDataset(VISLOC_ROOT, flight_id=VAL_FLIGHT_ID, transform=inference_uav_transforms)
 val_query_loader = DataLoader(val_query_ds, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, shuffle=False)
 
@@ -96,7 +104,11 @@ val_gallery_loader = DataLoader(
 # Model
 # ---------------------------------------------------------------------------
 
+print("Setting up backbone...")
+
 backbone = DiffusionSatBackbone(DIFFUSIONSAT_256_CHCKPT, DEVICE, dtype=torch.bfloat16)
+
+print("Setting up model...")
 
 model = FuserEmbedderModule(
   backbone=backbone,
@@ -112,10 +124,16 @@ model = FuserEmbedderModule(
   val_gallery_dataloader=val_gallery_loader,
 )
 
+print("Model hparams:")
+for name, param in model.hparams.items():
+    print(f"  {name}: {param}")
+
 
 # ---------------------------------------------------------------------------
 # Logger & callbacks
 # ---------------------------------------------------------------------------
+
+print("Setting up logger and callbacks...")
 
 wandb_logger = WandbLogger(
   project="diffusion-vpr",
@@ -139,6 +157,8 @@ lr_monitor = LearningRateMonitor(logging_interval="step")
 # Train
 # ---------------------------------------------------------------------------
 
+print("Setting up trainer...")
+
 trainer = L.Trainer(
   max_epochs=MAX_EPOCHS,
   accelerator="gpu",
@@ -149,6 +169,11 @@ trainer = L.Trainer(
   val_check_interval=1.0,
   log_every_n_steps=10,
   gradient_clip_val=1.0,
+  #
+  limit_train_batches=20,
+  limit_val_batches=20,
 )
+
+print("Starting training!")
 
 trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_query_loader)
