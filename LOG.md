@@ -18,3 +18,18 @@ TSNE looks "better".
 [notebookes/2-evaluate-timesteps.py](notebookes/2-evaluate-timesteps.py), results: [results/2-evaluate-timesteps.csv](notebookes/2-evaluate-timesteps.py).
 
 Findings: after testing on a single flight with UAV/satellite data, we can cut num_timesteps from 50 to 10, and choose save_timesteps as [8, 7] instead of [48, 46, 42] with a better R@1 metric.
+
+### hirogen-blood-wine-6
+
+https://wandb.ai/dmytrii-puzyr-ukrainian-catholic-university/diffusion-vpr/runs/fhejf44a?nw=nwuserdmytriipuzyr
+
+Supervised training of the embedder head. 10 epochs, R@1 19%, R@5 49%, R@10 67%.
+
+FLIGHT_IDS = ["01", "02", "03", "05", "09", "10"]
+VAL_FLIGHT_ID = "03"
+
+It seems like in the end the model learns something. We need more epochs!
+
+- Claude tells me there's a possible issue with re-ranking given the gap between R@K metrics
+- also, we can do better with hard negative mining / multi-positive chunks
+- more epochs, second training phase

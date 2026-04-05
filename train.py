@@ -33,7 +33,7 @@ DEVICE = torch.device("cuda")
 NUM_WORKERS = 8
 BATCH_SIZE = 256
 MAX_EPOCHS = 10
-TRAIN_FLIGHT_IDS = ["03"] # overfit to validate
+TRAIN_FLIGHT_IDS = ["03"]  # overfit to validate
 # TRAIN_FLIGHT_IDS = ["01", "02", "05", "09", "11"]
 VAL_FLIGHT_ID = "03"
 
@@ -47,6 +47,7 @@ warnings.filterwarnings("ignore", ".*does not have many workers.*")
 # ---------------------------------------------------------------------------
 
 print("Setting up training datasets...")
+
 
 def train_collate_fn(batch: list[tuple]) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
   """Apply two independent UAV-sim augmentations per satellite chunk to produce a pair of views."""
@@ -114,19 +115,18 @@ model = FuserEmbedderModule(
   backbone=backbone,
   img_size=256,
   batch_size=BATCH_SIZE,
-  val_batch_size=BATCH_SIZE,
   warmup_epochs=1,
   max_train_epochs=MAX_EPOCHS,
   vicreg_alpha=0.5,
-  save_timesteps=[48, 46, 42],
-  num_timesteps=50,
+  save_timesteps=[8, 7],
+  num_timesteps=10,
   layer_idxs={"down_blocks": {"attn1": "all"}},
   val_gallery_dataloader=val_gallery_loader,
 )
 
 print("Model hparams:")
 for name, param in model.hparams.items():
-    print(f"  {name}: {param}")
+  print(f"  {name}: {param}")
 
 
 # ---------------------------------------------------------------------------

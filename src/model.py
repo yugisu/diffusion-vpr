@@ -17,89 +17,17 @@ from src.losses import SpatialLoss
 from src.retrievers import FAISSRetriever
 
 
-class FuserEmbedderModule(L.LightningModule):
-  def __init__(
-    self,
-    backbone: DiffusionSatBackbone,
-    # General
-    img_size: Literal[256] = 256,
-    batch_size: int = 16,
-    val_batch_size: int = 32,
-    # LDM extractor
-    save_timesteps: list = [48, 46, 42],
-    num_timesteps: int = 50,
-    layer_idxs: dict = {"down_blocks": {"attn1": "all"}},
-    diffusion_mode: str = "inversion",
-    prompt: str = "A satellite image",
-    negative_prompt: str = "",
-    resize_outputs: int = -1,
-    # Loss
-    vicreg_alpha: float = 0.5,
-    # Training
-    lr: float = 1e-2,
-    weight_decay: float = 1e-4,
-    min_lr: float = 1e-5,
-    warmup_epochs: int = 5,
-    max_train_epochs: int = 40,
-    # Validation
-    val_gallery_dataloader: torch.utils.data.DataLoader | None = None,
-  ):
-    super().__init__()
-    self.save_hyperparameters(ignore=["backbone", "val_gallery_dataloader"])
+class FuserEmbedderValidationMixin:
+  """Mixin to add validation logic for the FuserEmbedderModule."""
 
-    # Diffusion backbone.
-    ldm_cfg = LDMExtractorCfg(img_size=img_size, batch_size=batch_size, save_timesteps=save_timesteps, num_timesteps=num_timesteps, layer_idxs=layer_idxs, diffusion_mode=diffusion_mode, prompt=prompt, negative_prompt=negative_prompt, resize_outputs=resize_outputs)  # fmt: off
-    backbone.set_ldm_extractor_cfg(ldm_cfg)
-    self.backbone = backbone
-
-    # Trainable head.
-    self.embedder = FuserEmbedder(
-      save_timesteps=self.backbone.ldm_extractor.save_timesteps,
-      feature_dims=self.backbone.ldm_extractor.collected_dims,
-    )
-
-    self.criterion = SpatialLoss(alpha=vicreg_alpha)
-
-    # Validation dataset.
-    self.val_gallery_dataloader = val_gallery_dataloader
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
 
     # Validation state.
     self._val_gallery_embs: list[torch.Tensor] | None = None
     self._val_query_embs: list[torch.Tensor] | None = None
     self._val_gallery_coords: list[tuple[float, float]] | None = None
     self._val_query_coords: list[tuple[float, float]] | None = None
-
-  # ------------------------------------------------------------------
-  # Training
-  # ------------------------------------------------------------------
-
-  def training_step(self, batch, batch_idx):
-    sat_view, uav_view, _, _ = batch
-
-    with torch.no_grad():
-      feats1 = self.backbone(sat_view)
-      feats2 = self.backbone(uav_view)
-
-    spatial1, pooled1 = self.embedder.forward_unpooled(feats1)
-    spatial2, pooled2 = self.embedder.forward_unpooled(feats2)
-
-    loss = self.criterion(spatial1, pooled1, spatial2, pooled2)
-    self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=True)
-    return loss
-
-  # ------------------------------------------------------------------
-  # Helpers
-  # ------------------------------------------------------------------
-
-  @torch.inference_mode()
-  def forward(self, imgs: torch.Tensor, normalize: bool = True) -> torch.Tensor:
-    feats = self.backbone(imgs)
-
-    embs = self.embedder.forward(feats)
-    if normalize:
-      embs = F.normalize(embs, p=2, dim=1)
-
-    return embs
 
   # ------------------------------------------------------------------
   # Validation
@@ -125,7 +53,7 @@ class FuserEmbedderModule(L.LightningModule):
     self._val_query_coords = []
 
   @torch.inference_mode()
-  def validation_step(self, batch, batch_idx):
+  def validation_step(self, batch, _batch_idx):
     if self.val_gallery_dataloader is None:
       return
 
@@ -168,6 +96,85 @@ class FuserEmbedderModule(L.LightningModule):
     self._val_gallery_coords = None
     self._val_query_embs = None
     self._val_query_coords = None
+
+
+class FuserEmbedderModule(FuserEmbedderValidationMixin, L.LightningModule):
+  def __init__(
+    self,
+    backbone: DiffusionSatBackbone,
+    # General
+    img_size: Literal[256] = 256,
+    batch_size: int = 16,
+    # LDM extractor
+    save_timesteps: list = [8, 7],
+    num_timesteps: int = 10,
+    layer_idxs: dict = {"down_blocks": {"attn1": "all"}},
+    diffusion_mode: str = "inversion",
+    prompt: str = "A satellite image",
+    negative_prompt: str = "",
+    resize_outputs: int = -1,
+    # Loss
+    vicreg_alpha: float = 0.5,
+    # Training
+    lr: float = 1e-2,
+    weight_decay: float = 1e-4,
+    min_lr: float = 1e-5,
+    warmup_epochs: int = 5,
+    max_train_epochs: int = 40,
+    # Validation
+    val_gallery_dataloader: torch.utils.data.DataLoader | None = None,
+  ):
+    super().__init__()
+    self.save_hyperparameters(ignore=["backbone", "val_gallery_dataloader"])
+
+    # Diffusion backbone.
+    ldm_cfg = LDMExtractorCfg(img_size=img_size, batch_size=batch_size, save_timesteps=save_timesteps, num_timesteps=num_timesteps, layer_idxs=layer_idxs, diffusion_mode=diffusion_mode, prompt=prompt, negative_prompt=negative_prompt, resize_outputs=resize_outputs)  # fmt: off
+    backbone.set_ldm_extractor_cfg(ldm_cfg)
+    self.backbone = backbone
+    self.backbone.eval()
+
+    # Trainable head.
+    self.embedder = FuserEmbedder(
+      save_timesteps=self.backbone.ldm_extractor.save_timesteps,
+      feature_dims=self.backbone.ldm_extractor.collected_dims,
+    )
+
+    self.criterion = SpatialLoss(alpha=vicreg_alpha)
+
+    # Validation dataset.
+    self.val_gallery_dataloader = val_gallery_dataloader
+
+  # ------------------------------------------------------------------
+  # Helpers
+  # ------------------------------------------------------------------
+
+  @torch.inference_mode()
+  def forward(self, imgs: torch.Tensor, normalize: bool = True) -> torch.Tensor:
+    feats = self.backbone(imgs)
+
+    embs = self.embedder.forward(feats)
+    if normalize:
+      embs = F.normalize(embs, p=2, dim=1)
+
+    return embs
+
+  # ------------------------------------------------------------------
+  # Training
+  # ------------------------------------------------------------------
+
+  def training_step(self, batch, _batch_idx):
+    sat_view, uav_view, _, _ = batch
+
+    with torch.no_grad():
+      feats1 = self.backbone(sat_view)
+      feats2 = self.backbone(uav_view)
+
+    spatial1, pooled1 = self.embedder.forward_unpooled(feats1)
+    spatial2, pooled2 = self.embedder.forward_unpooled(feats2)
+
+    loss = self.criterion(spatial1, pooled1, spatial2, pooled2)
+    self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=True)
+    return loss
 
   # ------------------------------------------------------------------
   # Optimizer
