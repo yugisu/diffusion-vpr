@@ -74,6 +74,6 @@ class DiffusionSatBackbone(torch.nn.Module):
     if self.ldm_extractor is None:
       raise ValueError("LDM extractor not configured. Please call set_ldm_extractor_cfg() first.")
 
-    latents = self.vae.encode(imgs).latent_dist.sample() * 0.18215
+    latents = self.vae.encode(imgs.to(dtype=self.dtype)).latent_dist.sample() * 0.18215
     feats, _ = self.ldm_extractor.forward(latents)
     return feats
