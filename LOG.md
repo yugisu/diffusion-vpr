@@ -12,3 +12,9 @@ TSNE looks "better".
 - need to compare what the backbone "sees" emprically (in a notebook). the backbone can produce poor features for UAV images.
 - what if we treat UAV images as a separate modality and use a separate network for UAV vs DiffusionSat for satellite imagery?
 - what if we use SD2.1 instead of DiffusionSat as it's not overfit for satellite imagery?
+
+### trying to optimize inference time
+
+[notebookes/2-evaluate-timesteps.py](notebookes/2-evaluate-timesteps.py), results: [results/2-evaluate-timesteps.csv](notebookes/2-evaluate-timesteps.py).
+
+Findings: after testing on a single flight with UAV/satellite data, we can cut num_timesteps from 50 to 10, and choose save_timesteps as [8, 7] instead of [48, 46, 42] with a better R@1 metric.

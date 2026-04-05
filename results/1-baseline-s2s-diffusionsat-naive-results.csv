@@ -1,73 +1,82 @@
-save_timesteps,layer_idxs,embedder,emb_dim,n_samples,normalize_embeddings,Recall@1,Recall@5,Recall@10
-"[48, 46, 42]",{'down_blocks': {'attn1': 'all'}},ConcatGeM,13440,512,True,0.7890625,0.822265625,0.83984375
-"[47, 45, 40]",{'down_blocks': {'attn1': 'all'}},ConcatGeM,13440,512,True,0.787109375,0.8203125,0.841796875
-"[49, 47, 45, 40, 35]",{'down_blocks': {'attn1': 'all'}},ConcatGeM,22400,512,True,0.78515625,0.818359375,0.837890625
-"[47, 45, 40]",{'down_blocks': {'attn1': 'all'}},ConcatGAP,13440,512,True,0.783203125,0.8203125,0.84375
-"[49, 47, 45, 40, 35]",{'down_blocks': {'attn1': 'all'}},ConcatGAP,22400,512,True,0.779296875,0.82421875,0.83984375
-"[48, 46, 42]",{'down_blocks': {'attn1': 'all'}},ConcatGAP,13440,512,True,0.779296875,0.8203125,0.8359375
-"[48, 46, 42]",{'up_blocks': {'attn1': 'all'}},ConcatGAP,20160,512,True,0.779296875,0.822265625,0.8359375
+save_timesteps,num_timesteps,layer_idxs,embedder,emb_dim,n_samples,normalize_embeddings,Recall@1,Recall@5,Recall@10
+"[48, 46, 42]",50,{'down_blocks': {'attn1': 'all'}},ConcatGeM,13440,512,True,0.7890625,0.822265625,0.83984375
+"[47, 45, 40]",50,{'down_blocks': {'attn1': 'all'}},ConcatGeM,13440,512,True,0.787109375,0.8203125,0.841796875
+"[49, 47, 45, 40, 35]",50,{'down_blocks': {'attn1': 'all'}},ConcatGeM,22400,512,True,0.78515625,0.818359375,0.837890625
+"[47, 45, 40]",50,{'down_blocks': {'attn1': 'all'}},ConcatGAP,13440,512,True,0.783203125,0.8203125,0.84375
+"[49, 47, 45, 40, 35]",50,{'down_blocks': {'attn1': 'all'}},ConcatGAP,22400,512,True,0.779296875,0.82421875,0.83984375
+"[48, 46, 42]",50,{'down_blocks': {'attn1': 'all'}},ConcatGAP,13440,512,True,0.779296875,0.8203125,0.8359375
+"[48, 46, 42]",50,{'up_blocks': {'attn1': 'all'}},ConcatGAP,20160,512,True,0.779296875,0.822265625,0.8359375
 "[48, 46, 42]","{'down_blocks': {'attn1': 'all'}, 'mid_block': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGAP,37440,512,True,0.77734375,0.814453125,0.83203125
 "[49, 47, 45, 40, 35]","{'down_blocks': {'attn1': 'all'}, 'mid_block': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGAP,62400,512,True,0.77734375,0.8203125,0.828125
-"[47, 45, 40]",{'up_blocks': {'attn1': 'all'}},ConcatGAP,20160,512,True,0.775390625,0.82421875,0.8359375
+"[47, 45, 40]",50,{'up_blocks': {'attn1': 'all'}},ConcatGAP,20160,512,True,0.775390625,0.82421875,0.8359375
 "[47, 45, 40]","{'down_blocks': {'attn1': 'all'}, 'mid_block': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGAP,37440,512,True,0.775390625,0.81640625,0.83203125
-"[49, 47, 45, 40, 35]",{'up_blocks': {'attn1': 'all'}},ConcatGAP,33600,512,True,0.775390625,0.814453125,0.83203125
+"[49, 47, 45, 40, 35]",50,{'up_blocks': {'attn1': 'all'}},ConcatGAP,33600,512,True,0.775390625,0.814453125,0.83203125
 "[47, 45, 40]","{'down_blocks': {'attn1': 'all'}, 'mid_block': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGeM,37440,512,True,0.75,0.798828125,0.810546875
-"[47, 45, 40]",{'up_blocks': {'attn1': 'all'}},ConcatGeM,20160,512,True,0.74609375,0.79296875,0.8125
+"[47, 45, 40]",50,{'up_blocks': {'attn1': 'all'}},ConcatGeM,20160,512,True,0.74609375,0.79296875,0.8125
 "[49, 47, 45, 40, 35]","{'down_blocks': {'attn1': 'all'}, 'mid_block': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGeM,62400,512,True,0.720703125,0.76171875,0.783203125
 "[48, 46, 42]","{'down_blocks': {'attn1': 'all'}, 'mid_block': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGeM,37440,512,True,0.71875,0.775390625,0.78125
-"[49, 47, 45, 40, 35]",{'up_blocks': {'attn1': 'all'}},ConcatGeM,33600,512,True,0.71484375,0.76953125,0.78515625
-"[48, 46, 42]",{'up_blocks': {'attn1': 'all'}},ConcatGeM,20160,512,True,0.71484375,0.771484375,0.78125
-"[49, 47, 45, 40, 35]",{'mid_block': {'attn1': 'all'}},ConcatGeM,6400,512,True,0.671875,0.74609375,0.77734375
-"[49, 47, 45, 40, 35]",{'mid_block': {'attn1': 'all'}},ConcatGAP,6400,512,True,0.669921875,0.744140625,0.765625
-"[47, 45, 40]",{'mid_block': {'attn1': 'all'}},ConcatGAP,3840,512,True,0.658203125,0.736328125,0.759765625
-"[47, 45, 40]",{'mid_block': {'attn1': 'all'}},ConcatGeM,3840,512,True,0.65625,0.732421875,0.767578125
-"[48, 46, 42]",{'mid_block': {'attn1': 'all'}},ConcatGAP,3840,512,True,0.65234375,0.720703125,0.755859375
-"[48, 46, 42]",{'mid_block': {'attn1': 'all'}},ConcatGeM,3840,512,True,0.6484375,0.73046875,0.7578125
-"[47, 45, 40]",{'down_blocks': {'attn1': 'all'}},ConcatGAP,13440,128,True,0.8359375,0.890625,0.9375
-"[47, 45, 40]",{'down_blocks': {'attn1': 'all'}},ConcatGeM,13440,128,True,0.8359375,0.8828125,0.9296875
-"[48, 46, 42]",{'down_blocks': {'attn1': 'all'}},ConcatGAP,13440,128,True,0.8359375,0.8828125,0.9375
-"[48, 46, 42]",{'down_blocks': {'attn1': 'all'}},ConcatGeM,13440,128,True,0.8359375,0.890625,0.9296875
-"[49, 47, 45, 40, 35]",{'down_blocks': {'attn1': 'all'}},ConcatGAP,22400,128,True,0.828125,0.890625,0.9140625
-"[49, 47, 45, 40, 35]",{'down_blocks': {'attn1': 'all'}},ConcatGeM,22400,128,True,0.8203125,0.8828125,0.921875
-"[48, 46, 42]",{'up_blocks': {'attn1': 'all'}},ConcatGAP,20160,128,True,0.8203125,0.8828125,0.921875
+"[49, 47, 45, 40, 35]",50,{'up_blocks': {'attn1': 'all'}},ConcatGeM,33600,512,True,0.71484375,0.76953125,0.78515625
+"[48, 46, 42]",50,{'up_blocks': {'attn1': 'all'}},ConcatGeM,20160,512,True,0.71484375,0.771484375,0.78125
+"[49, 47, 45, 40, 35]",50,{'mid_block': {'attn1': 'all'}},ConcatGeM,6400,512,True,0.671875,0.74609375,0.77734375
+"[49, 47, 45, 40, 35]",50,{'mid_block': {'attn1': 'all'}},ConcatGAP,6400,512,True,0.669921875,0.744140625,0.765625
+"[47, 45, 40]",50,{'mid_block': {'attn1': 'all'}},ConcatGAP,3840,512,True,0.658203125,0.736328125,0.759765625
+"[47, 45, 40]",50,{'mid_block': {'attn1': 'all'}},ConcatGeM,3840,512,True,0.65625,0.732421875,0.767578125
+"[48, 46, 42]",50,{'mid_block': {'attn1': 'all'}},ConcatGAP,3840,512,True,0.65234375,0.720703125,0.755859375
+"[48, 46, 42]",50,{'mid_block': {'attn1': 'all'}},ConcatGeM,3840,512,True,0.6484375,0.73046875,0.7578125
+"[47, 45, 40]",50,{'down_blocks': {'attn1': 'all'}},ConcatGAP,13440,128,True,0.8359375,0.890625,0.9375
+"[47, 45, 40]",50,{'down_blocks': {'attn1': 'all'}},ConcatGeM,13440,128,True,0.8359375,0.8828125,0.9296875
+"[48, 46, 42]",50,{'down_blocks': {'attn1': 'all'}},ConcatGAP,13440,128,True,0.8359375,0.8828125,0.9375
+"[48, 46, 42]",50,{'down_blocks': {'attn1': 'all'}},ConcatGeM,13440,128,True,0.8359375,0.890625,0.9296875
+"[49, 47, 45, 40, 35]",50,{'down_blocks': {'attn1': 'all'}},ConcatGAP,22400,128,True,0.828125,0.890625,0.9140625
+"[49, 47, 45, 40, 35]",50,{'down_blocks': {'attn1': 'all'}},ConcatGeM,22400,128,True,0.8203125,0.8828125,0.921875
+"[48, 46, 42]",50,{'up_blocks': {'attn1': 'all'}},ConcatGAP,20160,128,True,0.8203125,0.8828125,0.921875
 "[48, 46, 42]","{'mid_block': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGAP,24000,128,True,0.8203125,0.875,0.921875
 "[48, 46, 42]","{'down_blocks': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGAP,33600,128,True,0.8203125,0.890625,0.921875
-"[47, 45, 40]",{'up_blocks': {'attn1': 'all'}},ConcatGeM,20160,128,True,0.8125,0.875,0.921875
+"[47, 45, 40]",50,{'up_blocks': {'attn1': 'all'}},ConcatGeM,20160,128,True,0.8125,0.875,0.921875
 "[47, 45, 40]","{'down_blocks': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGeM,33600,128,True,0.8125,0.875,0.9296875
 "[49, 47, 45, 40, 35]","{'mid_block': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGAP,40000,128,True,0.8125,0.859375,0.921875
 "[49, 47, 45, 40, 35]","{'down_blocks': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGAP,56000,128,True,0.8046875,0.890625,0.921875
-"[49, 47, 45, 40, 35]",{'up_blocks': {'attn1': 'all'}},ConcatGAP,33600,128,True,0.8046875,0.8671875,0.9296875
-"[47, 45, 40]",{'up_blocks': {'attn1': 'all'}},ConcatGAP,20160,128,True,0.8046875,0.875,0.921875
+"[49, 47, 45, 40, 35]",50,{'up_blocks': {'attn1': 'all'}},ConcatGAP,33600,128,True,0.8046875,0.8671875,0.9296875
+"[47, 45, 40]",50,{'up_blocks': {'attn1': 'all'}},ConcatGAP,20160,128,True,0.8046875,0.875,0.921875
 "[47, 45, 40]","{'down_blocks': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGAP,33600,128,True,0.8046875,0.8984375,0.9296875
 "[47, 45, 40]","{'mid_block': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGAP,24000,128,True,0.8046875,0.8828125,0.921875
 "[40, 30, 20]","{'mid_block': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGAP,24000,128,True,0.8046875,0.8671875,0.90625
 "[40, 30, 20]","{'mid_block': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGeM,24000,128,True,0.8046875,0.8515625,0.90625
-"[40, 30, 20]",{'down_blocks': {'attn1': 'all'}},ConcatGAP,13440,128,True,0.796875,0.859375,0.8984375
-"[40, 30, 20]",{'down_blocks': {'attn1': 'all'}},ConcatGeM,13440,128,True,0.796875,0.8515625,0.8828125
+"[40, 30, 20]",50,{'down_blocks': {'attn1': 'all'}},ConcatGAP,13440,128,True,0.796875,0.859375,0.8984375
+"[40, 30, 20]",50,{'down_blocks': {'attn1': 'all'}},ConcatGeM,13440,128,True,0.796875,0.8515625,0.8828125
 "[47, 45, 40]","{'mid_block': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGeM,24000,128,True,0.796875,0.875,0.9296875
 "[40, 30, 20]","{'down_blocks': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGAP,33600,128,True,0.7890625,0.859375,0.8984375
 "[40, 30, 20]","{'down_blocks': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGeM,33600,128,True,0.7890625,0.84375,0.8984375
-"[48, 46, 42]",{'up_blocks': {'attn1': 'all'}},ConcatGeM,20160,128,True,0.7890625,0.859375,0.890625
-"[49, 47, 45, 40, 35]",{'up_blocks': {'attn1': 'all'}},ConcatGeM,33600,128,True,0.7890625,0.84375,0.890625
-"[40, 30, 20]",{'up_blocks': {'attn1': 'all'}},ConcatGeM,20160,128,True,0.7890625,0.84375,0.90625
+"[48, 46, 42]",50,{'up_blocks': {'attn1': 'all'}},ConcatGeM,20160,128,True,0.7890625,0.859375,0.890625
+"[49, 47, 45, 40, 35]",50,{'up_blocks': {'attn1': 'all'}},ConcatGeM,33600,128,True,0.7890625,0.84375,0.890625
+"[40, 30, 20]",50,{'up_blocks': {'attn1': 'all'}},ConcatGeM,20160,128,True,0.7890625,0.84375,0.90625
 "[48, 46, 42]","{'down_blocks': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGeM,33600,128,True,0.7890625,0.859375,0.8984375
 "[48, 46, 42]","{'mid_block': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGeM,24000,128,True,0.78125,0.84375,0.8984375
-"[40, 30, 20]",{'up_blocks': {'attn1': 'all'}},ConcatGAP,20160,128,True,0.78125,0.8515625,0.90625
+"[40, 30, 20]",50,{'up_blocks': {'attn1': 'all'}},ConcatGAP,20160,128,True,0.78125,0.8515625,0.90625
 "[49, 47, 45, 40, 35]","{'down_blocks': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGeM,56000,128,True,0.78125,0.84375,0.8984375
 "[49, 47, 45, 40, 35]","{'mid_block': {'attn1': 'all'}, 'up_blocks': {'attn1': 'all'}}",ConcatGeM,40000,128,True,0.78125,0.84375,0.8984375
 "[40, 30, 20]","{'up_blocks': {'attn1': 'all', 'conv2': 'all'}}",ConcatGAP,51840,128,True,0.765625,0.8515625,0.8828125
 "[47, 45, 40]","{'up_blocks': {'attn1': 'all', 'conv2': 'all'}}",ConcatGAP,51840,128,True,0.7578125,0.828125,0.8671875
 "[48, 46, 42]","{'up_blocks': {'attn1': 'all', 'conv2': 'all'}}",ConcatGAP,51840,128,True,0.75,0.828125,0.8515625
-"[40, 30, 20]",{'up_blocks': {'conv2': 'all'}},ConcatGAP,31680,128,True,0.7421875,0.84375,0.8515625
+"[40, 30, 20]",50,{'up_blocks': {'conv2': 'all'}},ConcatGAP,31680,128,True,0.7421875,0.84375,0.8515625
 "[49, 47, 45, 40, 35]","{'up_blocks': {'attn1': 'all', 'conv2': 'all'}}",ConcatGAP,86400,128,True,0.7421875,0.8359375,0.8828125
-"[49, 47, 45, 40, 35]",{'up_blocks': {'conv2': 'all'}},ConcatGAP,52800,128,True,0.7265625,0.8125,0.8359375
-"[47, 45, 40]",{'up_blocks': {'conv2': 'all'}},ConcatGAP,31680,128,True,0.7265625,0.8046875,0.8515625
-"[48, 46, 42]",{'up_blocks': {'conv2': 'all'}},ConcatGAP,31680,128,True,0.7265625,0.7890625,0.8359375
+"[49, 47, 45, 40, 35]",50,{'up_blocks': {'conv2': 'all'}},ConcatGAP,52800,128,True,0.7265625,0.8125,0.8359375
+"[47, 45, 40]",50,{'up_blocks': {'conv2': 'all'}},ConcatGAP,31680,128,True,0.7265625,0.8046875,0.8515625
+"[48, 46, 42]",50,{'up_blocks': {'conv2': 'all'}},ConcatGAP,31680,128,True,0.7265625,0.7890625,0.8359375
 "[47, 45, 40]","{'up_blocks': {'attn1': 'all', 'conv2': 'all'}}",ConcatGeM,51840,128,True,0.671875,0.7265625,0.734375
-"[47, 45, 40]",{'up_blocks': {'conv2': 'all'}},ConcatGeM,31680,128,True,0.6640625,0.7421875,0.7421875
-"[48, 46, 42]",{'up_blocks': {'conv2': 'all'}},ConcatGeM,31680,128,True,0.6640625,0.703125,0.7109375
+"[47, 45, 40]",50,{'up_blocks': {'conv2': 'all'}},ConcatGeM,31680,128,True,0.6640625,0.7421875,0.7421875
+"[48, 46, 42]",50,{'up_blocks': {'conv2': 'all'}},ConcatGeM,31680,128,True,0.6640625,0.703125,0.7109375
 "[48, 46, 42]","{'up_blocks': {'attn1': 'all', 'conv2': 'all'}}",ConcatGeM,51840,128,True,0.6328125,0.6875,0.6875
-"[49, 47, 45, 40, 35]",{'up_blocks': {'conv2': 'all'}},ConcatGeM,52800,128,True,0.5546875,0.5859375,0.609375
+"[49, 47, 45, 40, 35]",50,{'up_blocks': {'conv2': 'all'}},ConcatGeM,52800,128,True,0.5546875,0.5859375,0.609375
 "[49, 47, 45, 40, 35]","{'up_blocks': {'attn1': 'all', 'conv2': 'all'}}",ConcatGeM,86400,128,True,0.5234375,0.5625,0.578125
-"[40, 30, 20]",{'up_blocks': {'conv2': 'all'}},ConcatGeM,31680,128,True,0.1171875,0.125,0.140625
+"[40, 30, 20]",50,{'up_blocks': {'conv2': 'all'}},ConcatGeM,31680,128,True,0.1171875,0.125,0.140625
 "[40, 30, 20]","{'up_blocks': {'attn1': 'all', 'conv2': 'all'}}",ConcatGeM,51840,128,True,0.1171875,0.1328125,0.140625
+[49],50,{'down_blocks': {'attn1': 'all'}},ConcatGeM,4480,256,True,0.80078125,0.859375,0.8828125
+"[49, 48, 47]",50,{'down_blocks': {'attn1': 'all'}},ConcatGeM,13440,256,True,0.796875,0.87109375,0.8828125
+[48],50,{'down_blocks': {'attn1': 'all'}},ConcatGeM,4480,256,True,0.796875,0.86328125,0.8828125
+[47],50,{'down_blocks': {'attn1': 'all'}},ConcatGeM,4480,256,True,0.796875,0.87109375,0.88671875
+"[48, 46]",50,{'down_blocks': {'attn1': 'all'}},ConcatGeM,8960,256,True,0.79296875,0.875,0.88671875
+"[48, 46, 42]",50,{'down_blocks': {'attn1': 'all'}},ConcatGeM,13440,256,True,0.7890625,0.8671875,0.89453125
+[42],50,{'down_blocks': {'attn1': 'all'}},ConcatGeM,4480,256,True,0.78515625,0.85546875,0.890625
+[40],50,{'down_blocks': {'attn1': 'all'}},ConcatGeM,4480,256,True,0.78125,0.84765625,0.8828125
+[30],50,{'down_blocks': {'attn1': 'all'}},ConcatGeM,4480,256,True,0.703125,0.76953125,0.828125

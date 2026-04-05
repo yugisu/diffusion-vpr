@@ -30,11 +30,11 @@ VISLOC_ROOT = Path(os.environ["VISLOC_ROOT"])
 DIFFUSIONSAT_256_CHCKPT = Path(os.environ["DIFFUSIONSAT_256_CHCKPT"])
 RANDOM_SEED = 42
 DEVICE = torch.device("cuda")
-NUM_WORKERS = 4
-BATCH_SIZE = 32
-# MAX_EPOCHS = 20
-MAX_EPOCHS = 1
-TRAIN_FLIGHT_IDS = ["01", "02", "05"]
+NUM_WORKERS = 8
+BATCH_SIZE = 256
+MAX_EPOCHS = 10
+TRAIN_FLIGHT_IDS = ["03"] # overfit to validate
+# TRAIN_FLIGHT_IDS = ["01", "02", "05", "09", "11"]
 VAL_FLIGHT_ID = "03"
 
 L.seed_everything(RANDOM_SEED, workers=True)
@@ -169,9 +169,6 @@ trainer = L.Trainer(
   val_check_interval=1.0,
   log_every_n_steps=10,
   gradient_clip_val=1.0,
-  #
-  limit_train_batches=20,
-  limit_val_batches=20,
 )
 
 print("Starting training!")
