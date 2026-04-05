@@ -62,9 +62,6 @@ class DiffusionSatBackbone(torch.nn.Module):
     with torch.autocast(str(self.device), dtype=self.dtype):
       self.ldm_extractor = LDMExtractor(cfg, self.pipe)
 
-    # Offload CLIP encoder.
-    self.ldm_extractor.clip.to("cpu")
-
   @torch.inference_mode()
   def forward(self, imgs: torch.Tensor) -> dict:
     """
