@@ -64,7 +64,6 @@ Both use `gem_pool()` (generalized mean, p=3.0) and `normalize_embeddings()` (L2
 
 - **`UAVDataset`** — VisLoc drone images with GPS coords. Query-side only.
 - **`SatChunkDataset`** — Fixed 256×256 tiles (128px stride) from a satellite GeoTIFF. Gallery-side. Each chunk has GPS coords for ground truth construction.
-- **`SatSimDataset`** — Synthetic training pairs from satellite imagery. Randomly crops two scales from the same GeoTIFF: a large `sat_view` (reference) and a smaller `uav_view` (simulated UAV). Heavy augmentation on `uav_view` simulates the domain gap.
 
 ### Loss
 

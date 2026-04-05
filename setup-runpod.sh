@@ -15,6 +15,7 @@ WANDB_API_KEY=""
 
 apt-get update && apt-get install -y unzip gh
 curl -LsSf https://astral.sh/uv/install.sh | sh
+curl -fsSL https://claude.ai/install.sh | bash
 source "$HOME/.local/bin/env"
 
 # ============================================================
@@ -83,6 +84,19 @@ mkdir -p /workspace/checkpoints && cd /workspace/checkpoints
 
 # Trimmed DiffusionSat 256 checkpoint at 150k steps
 uvx gdown --folder 1VG4yV_fD9UhOa30JzsNRdTwG4cdeJlmX -O checkpoints/finetune_sd21_256_sn-satlas-fmow_snr5_md7norm_bs64_trimmed
+
+# ============================================================
+# VS Code CLI + extensions
+# ============================================================
+
+curl -Lk 'https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64' -o /tmp/vscode_cli.tar.gz
+tar -xf /tmp/vscode_cli.tar.gz -C /usr/local/bin/
+rm /tmp/vscode_cli.tar.gz
+
+code --install-extension astral-sh.ty
+code --install-extension ms-python.python
+code --install-extension anthropic.claude-code
+
 
 echo ""
 echo "=== Setup complete ==="
