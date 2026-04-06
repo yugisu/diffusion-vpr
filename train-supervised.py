@@ -16,6 +16,7 @@ import torchvision.transforms.functional as TF
 from dotenv import load_dotenv
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
+from PIL import Image
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
@@ -40,8 +41,8 @@ RANDOM_SEED = 42
 DEVICE = torch.device("cuda")
 NUM_WORKERS = 8
 BATCH_SIZE = 256
-MAX_EPOCHS = 10
-FLIGHT_ID = "03"
+FLIGHT_IDS = ["01", "02", "04", "05", "06", "08", "09", "10", "11"]
+VAL_FLIGHT_ID = "03"
 
 L.seed_everything(RANDOM_SEED, workers=True)
 torch.set_float32_matmul_precision("high")
@@ -60,8 +61,8 @@ train_uav_transforms = transforms.Compose(
     transforms.Resize(300),
     transforms.RandomResizedCrop(256, scale=(0.65, 1.0), ratio=(0.85, 1.15)),
     _random_90,
-    transforms.RandomRotation(degrees=30),
-    transforms.RandomPerspective(distortion_scale=0.25, p=0.4),
+    transforms.RandomRotation(degrees=15),
+    transforms.RandomPerspective(distortion_scale=0.1, p=0.4),
     # Photometric — UAV images often have different exposure, haze, and sensor response
     transforms.RandomApply([transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.3, hue=0.08)], p=0.8),
     transforms.RandomGrayscale(p=0.05),
@@ -111,6 +112,7 @@ class PairedUAVSatDataset(Dataset):
     flight_id: str,
     uav_transform=None,
     sat_transform=None,
+    top_k_positives: int = 3,  # This makes the dataset to serve one of the top-k nearest satellite chunks for each UAV image, selected at random. Provide "1" to choose the closest chunk.
   ):
     self.uav_ds = UAVDataset(root, flight_id, transform=None)
     self.sat_ds = SatChunkDataset(
@@ -133,24 +135,22 @@ class PairedUAVSatDataset(Dataset):
       ]
     )  # (M, 2)
     dists = np.sum((uav_coords[:, None, :] - sat_coords[None, :, :]) ** 2, axis=2)  # (M, N)
-    self.sat_indices = np.argmin(dists, axis=1)  # (M,)
+    self.sat_top_k = np.argsort(dists, axis=1)[:, :top_k_positives]  # (M, k)
 
   def __len__(self) -> int:
     return len(self.uav_ds)
 
-  def __getitem__(self, idx: int):
-    from PIL import Image as PILImage
-
+  def __getitem__(self, idx: int):  # ty:ignore[invalid-method-override]
     # UAV image
     uav_row = self.uav_ds.records.iloc[idx]
-    uav_img = PILImage.open(self.uav_ds.drone_dir / uav_row["filename"]).convert("RGB")
+    uav_img = Image.open(self.uav_ds.drone_dir / uav_row["filename"]).convert("RGB")
     lat, lon = float(uav_row["lat"]), float(uav_row["lon"])
 
-    # Matched satellite chunk (raw PIL image from dataset)
-    sat_idx = int(self.sat_indices[idx])
+    # Matched satellite chunk — sample uniformly from top-k closest by GPS.
+    sat_idx = int(random.choice(self.sat_top_k[idx]))
     sat_x, sat_y, _, _ = self.sat_ds._chunks[sat_idx]
     sat_crop = self.sat_ds._img[sat_y : sat_y + self.sat_ds.chunk_pixels, sat_x : sat_x + self.sat_ds.chunk_pixels]
-    sat_img = PILImage.fromarray(sat_crop)
+    sat_img = Image.fromarray(sat_crop)
 
     if self.uav_transform is not None:
       uav_img = self.uav_transform(uav_img)
@@ -282,11 +282,15 @@ class SupervisedEmbedderModule(FuserEmbedderValidationMixin, L.LightningModule):
 
 print("Setting up training dataset...")
 
-train_ds = PairedUAVSatDataset(
-  VISLOC_ROOT,
-  flight_id=FLIGHT_ID,
-  uav_transform=train_uav_transforms,
-  sat_transform=train_sat_transforms,
+from torch.utils.data import ConcatDataset
+
+train_ds = ConcatDataset(
+  [
+    PairedUAVSatDataset(
+      VISLOC_ROOT, flight_id=fid, uav_transform=train_uav_transforms, sat_transform=train_sat_transforms
+    )
+    for fid in FLIGHT_IDS
+  ]
 )
 train_loader = DataLoader(
   train_ds,
@@ -296,16 +300,17 @@ train_loader = DataLoader(
   drop_last=True,
 )
 
-print(f"Training pairs: {len(train_ds)}")
+print(f"Training pairs: {len(train_ds)} across {len(FLIGHT_IDS)} flights")
 
 print("Setting up validation datasets...")
 
-val_query_ds = UAVDataset(VISLOC_ROOT, flight_id=FLIGHT_ID, transform=inference_uav_transforms)
+
+val_query_ds = UAVDataset(VISLOC_ROOT, flight_id=VAL_FLIGHT_ID, transform=inference_uav_transforms)
 val_query_loader = DataLoader(val_query_ds, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, shuffle=False)
 
 val_gallery_ds = SatChunkDataset(
   VISLOC_ROOT,
-  flight_id=FLIGHT_ID,
+  flight_id=VAL_FLIGHT_ID,
   chunk_pixels=512,
   stride_pixels=128,
   scale_factor=0.25,
@@ -318,6 +323,8 @@ val_gallery_loader = DataLoader(val_gallery_ds, batch_size=BATCH_SIZE, num_worke
 # Model
 # ---------------------------------------------------------------------------
 
+MAX_EPOCHS = 50
+
 print("Setting up backbone...")
 
 backbone = DiffusionSatBackbone(DIFFUSIONSAT_256_CHCKPT, DEVICE, dtype=torch.bfloat16)
@@ -328,13 +335,16 @@ model = SupervisedEmbedderModule(
   backbone=backbone,
   img_size=256,
   batch_size=BATCH_SIZE,
-  warmup_epochs=2,
   max_train_epochs=MAX_EPOCHS,
   temperature=0.07,
   save_timesteps=[8, 7],
   num_timesteps=10,
   layer_idxs={"down_blocks": {"attn1": "all"}},
   val_gallery_dataloader=val_gallery_loader,
+  warmup_epochs=2,
+  lr=1e-2,
+  weight_decay=1e-4,
+  min_lr=1e-4,
 )
 
 print("Model hparams:")
@@ -349,6 +359,13 @@ for name, param in model.hparams.items():
 print("Setting up logger and callbacks...")
 
 wandb_logger = WandbLogger(project="diffusion-vpr", log_model=False)
+wandb_logger.log_hyperparams(
+  {
+    "dataset": "visloc",
+    "train_flights": FLIGHT_IDS,
+    "val_flights": [VAL_FLIGHT_ID],
+  }
+)
 wandb_logger.watch(model.embedder, log="gradients", log_freq=100)
 
 checkpoint_cb = ModelCheckpoint(
