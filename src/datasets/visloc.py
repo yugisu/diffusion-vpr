@@ -7,6 +7,7 @@ import rasterio
 import torchvision.transforms.functional as TF
 from PIL import Image
 from rasterio.enums import Resampling
+from rasterio.merge import merge as rasterio_merge
 from torch.utils.data import Dataset
 from torchvision import transforms
 
@@ -24,7 +25,7 @@ def _read_sat_bounds(root: Path, flight_id: str) -> tuple[float, float, float, f
 
 
 class UAVDataset(Dataset):
-  """VisLoc UAV drone images. Used as the query set for evaluation only — never for training."""
+  """VisLoc UAV drone images. Used as the query set for evaluation only - never for training."""
 
   def __init__(self, root: Path, flight_id: str, transform=None):
     self.drone_dir = root / flight_id / "drone"
@@ -71,15 +72,29 @@ class SatChunkDataset(Dataset):
       stride_pixels = chunk_pixels
 
     sat_path = root / flight_id / f"satellite{flight_id}.tif"
-    with rasterio.open(sat_path) as src:
-      h = int(src.height * scale_factor)
-      w = int(src.width * scale_factor)
+    tile_paths = sorted((root / flight_id).glob(f"satellite{flight_id}_*.tif"))
 
-      data = src.read([1, 2, 3], out_shape=(3, h, w), resampling=Resampling.lanczos)
+    if sat_path.exists():
+      with rasterio.open(sat_path) as src:
+        h = int(src.height * scale_factor)
+        w = int(src.width * scale_factor)
+        data = src.read([1, 2, 3], out_shape=(3, h, w), resampling=Resampling.bilinear)
+    elif tile_paths:
+      srcs = [rasterio.open(p) for p in tile_paths]
+      native_res = srcs[0].res  # (row_res, col_res) in CRS units
+      target_res = (native_res[0] / scale_factor, native_res[1] / scale_factor)
+      merged, _ = rasterio_merge(srcs, res=target_res, indexes=[1, 2, 3], resampling=Resampling.bilinear)
+      for s in srcs:
+        s.close()
+      data = merged  # (3, H, W) uint8
+      h, w = data.shape[1], data.shape[2]
+    else:
+      raise FileNotFoundError(f"No satellite TIF found for flight {flight_id}")
 
     self._img = np.transpose(data, (1, 2, 0))  # (H, W, 3) uint8
+    self._bounds = _read_sat_bounds(root, flight_id)
 
-    lat_min, lon_min, lat_max, lon_max = _read_sat_bounds(root, flight_id)
+    lat_min, lon_min, lat_max, lon_max = self._bounds
 
     self._chunks: list[tuple[int, int, float, float]] = []
     self._bboxes: list[tuple[float, float, float, float]] = []
@@ -121,7 +136,91 @@ class SatChunkDataset(Dataset):
     return img, lat, lon
 
 
+class PairedUAVSatDataset(Dataset):
+  """Each UAV image is paired with its GPS-nearest satellite chunk.
+
+  At init, we perform a one-time nearest-neighbour match (L2 on lat/lon)
+  between the UAV query set and the satellite chunk database.
+
+  Returns:
+      (uav_img, sat_img, lat, lon) where lat/lon are the UAV GPS coordinates.
+  """
+
+  def __init__(
+    self,
+    root: Path,
+    flight_id: str,
+    uav_transform=None,
+    sat_transform=None,
+    top_k_positives: int = 3,  # This makes the dataset to serve one of the top-k nearest satellite chunks for each UAV image, selected at random. Provide "1" to choose the closest chunk.
+    sat_scale_factor: float = 0.25,
+  ):
+    self.uav_ds = UAVDataset(root, flight_id, transform=None)
+    self.sat_ds = SatChunkDataset(
+      root,
+      flight_id=flight_id,
+      chunk_pixels=512,
+      stride_pixels=512 // 4,
+      scale_factor=sat_scale_factor,
+      transform=None,
+    )
+    self.uav_transform = uav_transform
+    self.sat_transform = sat_transform
+
+    # Match each UAV image to its nearest satellite chunk by GPS (L2 on lat/lon).
+    sat_coords = np.array(self.sat_ds.chunk_coords)  # (N, 2)
+    uav_coords = np.array(
+      [
+        (float(self.uav_ds.records.iloc[i]["lat"]), float(self.uav_ds.records.iloc[i]["lon"]))
+        for i in range(len(self.uav_ds))
+      ]
+    )  # (M, 2)
+    dists = np.sum((uav_coords[:, None, :] - sat_coords[None, :, :]) ** 2, axis=2)  # (M, N)
+    self.sat_top_k = np.argsort(dists, axis=1)[:, :top_k_positives]  # (M, k)
+
+  def __len__(self) -> int:
+    return len(self.uav_ds)
+
+  def __getitem__(self, idx: int):  # ty:ignore[invalid-method-override]
+    # UAV image
+    uav_row = self.uav_ds.records.iloc[idx]
+    uav_img = Image.open(self.uav_ds.drone_dir / uav_row["filename"]).convert("RGB")
+    lat, lon = float(uav_row["lat"]), float(uav_row["lon"])
+
+    # Matched satellite chunk — sample uniformly from top-k closest by GPS.
+    sat_idx = int(random.choice(self.sat_top_k[idx]))
+    sat_x, sat_y, _, _ = self.sat_ds._chunks[sat_idx]
+    sat_crop = self.sat_ds._img[sat_y : sat_y + self.sat_ds.chunk_pixels, sat_x : sat_x + self.sat_ds.chunk_pixels]
+    sat_img = Image.fromarray(sat_crop)
+
+    if self.uav_transform is not None:
+      uav_img = self.uav_transform(uav_img)
+    if self.sat_transform is not None:
+      sat_img = self.sat_transform(sat_img)
+
+    return uav_img, sat_img, lat, lon
+
+
 _random_90 = transforms.Lambda(lambda img: TF.rotate(img, random.choice([0, 90, 180, 270])))
+
+
+inference_uav_transforms = transforms.Compose(
+  [
+    transforms.Resize(256),
+    transforms.CenterCrop((256, 256)),
+    transforms.ToTensor(),
+    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+  ]
+)
+
+inference_sat_transforms = transforms.Compose(
+  [
+    transforms.Resize((256, 256)),
+    transforms.ToTensor(),
+    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+  ]
+)
+
 
 # A transform that aims to simulate a domain gap shift from satellite to UAV views in the VisLoc dataset. Not exactly CAEVL-style augmentation, though.
 train_sat_uav_sim_transforms = transforms.Compose(
@@ -140,18 +239,38 @@ train_sat_uav_sim_transforms = transforms.Compose(
   ]
 )
 
-inference_sat_transforms = transforms.Compose(
+
+# UAV image augmentation for supervised training
+train_sup_uav_transforms = transforms.Compose(
   [
-    transforms.Resize((256, 256)),
+    # Geometric
+    transforms.Resize(300),
+    transforms.RandomResizedCrop(256, scale=(0.65, 1.0), ratio=(0.85, 1.15)),
+    _random_90,
+    transforms.RandomRotation(degrees=15),
+    transforms.RandomPerspective(distortion_scale=0.1, p=0.4),
+    # Photometric - UAV images often have different exposure, haze, and sensor response
+    transforms.RandomApply([transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.3, hue=0.08)], p=0.8),
+    transforms.RandomGrayscale(p=0.05),
+    transforms.RandomApply([transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 2.0))], p=0.3),
+    # Simulate motion blur from drone movement
+    transforms.RandomApply([transforms.GaussianBlur(kernel_size=(1, 7), sigma=(0.1, 1.0))], p=0.15),
     transforms.ToTensor(),
     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
   ]
 )
 
-inference_uav_transforms = transforms.Compose(
+# Satellite augmentation for supervised training
+train_sup_sat_transforms = transforms.Compose(
   [
-    transforms.Resize(256),
-    transforms.CenterCrop((256, 256)),
+    # Geometric - satellite tiles can appear at any orientation and scale
+    transforms.Resize(300),
+    transforms.RandomResizedCrop(256, scale=(0.65, 1.0), ratio=(0.85, 1.15)),
+    _random_90,
+    # Photometric - sensor/season/time-of-day variation
+    transforms.RandomApply([transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.3, hue=0.08)], p=0.8),
+    transforms.RandomGrayscale(p=0.05),
+    transforms.RandomApply([transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 2.0))], p=0.3),
     transforms.ToTensor(),
     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
   ]

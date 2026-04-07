@@ -23,10 +23,13 @@ from torchvision import transforms
 
 from src.backbone import DiffusionSatBackbone
 from src.datasets.visloc import (
+  PairedUAVSatDataset,
   SatChunkDataset,
   UAVDataset,
   inference_sat_transforms,
   inference_uav_transforms,
+  train_sup_sat_transforms,
+  train_sup_uav_transforms,
 )
 from src.embedders import FuserEmbedder
 from src.ldm_extractor import LDMExtractorCfg
@@ -47,117 +50,6 @@ VAL_FLIGHT_ID = "03"
 L.seed_everything(RANDOM_SEED, workers=True)
 torch.set_float32_matmul_precision("high")
 warnings.filterwarnings("ignore", ".*does not have many workers.*")
-
-
-# ---------------------------------------------------------------------------
-# UAV training augmentations
-# ---------------------------------------------------------------------------
-
-_random_90 = transforms.Lambda(lambda img: TF.rotate(img, random.choice([0, 90, 180, 270])))
-
-train_uav_transforms = transforms.Compose(
-  [
-    # Geometric
-    transforms.Resize(300),
-    transforms.RandomResizedCrop(256, scale=(0.65, 1.0), ratio=(0.85, 1.15)),
-    _random_90,
-    transforms.RandomRotation(degrees=15),
-    transforms.RandomPerspective(distortion_scale=0.1, p=0.4),
-    # Photometric — UAV images often have different exposure, haze, and sensor response
-    transforms.RandomApply([transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.3, hue=0.08)], p=0.8),
-    transforms.RandomGrayscale(p=0.05),
-    transforms.RandomApply([transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 2.0))], p=0.3),
-    # Simulate motion blur from drone movement
-    transforms.RandomApply([transforms.GaussianBlur(kernel_size=(1, 7), sigma=(0.1, 1.0))], p=0.15),
-    transforms.ToTensor(),
-    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
-  ]
-)
-
-# Satellite augmentation — heavy, symmetric with UAV side
-train_sat_transforms = transforms.Compose(
-  [
-    # Geometric — satellite tiles can appear at any orientation and scale
-    transforms.Resize(300),
-    transforms.RandomResizedCrop(256, scale=(0.65, 1.0), ratio=(0.85, 1.15)),
-    _random_90,
-    # Photometric — sensor/season/time-of-day variation
-    transforms.RandomApply([transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.3, hue=0.08)], p=0.8),
-    transforms.RandomGrayscale(p=0.05),
-    transforms.RandomApply([transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 2.0))], p=0.3),
-    transforms.ToTensor(),
-    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
-  ]
-)
-
-
-# ---------------------------------------------------------------------------
-# Paired dataset
-# ---------------------------------------------------------------------------
-
-
-class PairedUAVSatDataset(Dataset):
-  """Each UAV image is paired with its GPS-nearest satellite chunk.
-
-  At init, we perform a one-time nearest-neighbour match (L2 on lat/lon)
-  between the UAV query set and the satellite chunk database.
-
-  Returns:
-      (uav_img, sat_img, lat, lon) where lat/lon are the UAV GPS coordinates.
-  """
-
-  def __init__(
-    self,
-    root: Path,
-    flight_id: str,
-    uav_transform=None,
-    sat_transform=None,
-    top_k_positives: int = 3,  # This makes the dataset to serve one of the top-k nearest satellite chunks for each UAV image, selected at random. Provide "1" to choose the closest chunk.
-  ):
-    self.uav_ds = UAVDataset(root, flight_id, transform=None)
-    self.sat_ds = SatChunkDataset(
-      root,
-      flight_id=flight_id,
-      chunk_pixels=512,
-      stride_pixels=128,
-      scale_factor=0.25,
-      transform=None,
-    )
-    self.uav_transform = uav_transform
-    self.sat_transform = sat_transform
-
-    # Match each UAV image to its nearest satellite chunk by GPS (L2 on lat/lon).
-    sat_coords = np.array(self.sat_ds.chunk_coords)  # (N, 2)
-    uav_coords = np.array(
-      [
-        (float(self.uav_ds.records.iloc[i]["lat"]), float(self.uav_ds.records.iloc[i]["lon"]))
-        for i in range(len(self.uav_ds))
-      ]
-    )  # (M, 2)
-    dists = np.sum((uav_coords[:, None, :] - sat_coords[None, :, :]) ** 2, axis=2)  # (M, N)
-    self.sat_top_k = np.argsort(dists, axis=1)[:, :top_k_positives]  # (M, k)
-
-  def __len__(self) -> int:
-    return len(self.uav_ds)
-
-  def __getitem__(self, idx: int):  # ty:ignore[invalid-method-override]
-    # UAV image
-    uav_row = self.uav_ds.records.iloc[idx]
-    uav_img = Image.open(self.uav_ds.drone_dir / uav_row["filename"]).convert("RGB")
-    lat, lon = float(uav_row["lat"]), float(uav_row["lon"])
-
-    # Matched satellite chunk — sample uniformly from top-k closest by GPS.
-    sat_idx = int(random.choice(self.sat_top_k[idx]))
-    sat_x, sat_y, _, _ = self.sat_ds._chunks[sat_idx]
-    sat_crop = self.sat_ds._img[sat_y : sat_y + self.sat_ds.chunk_pixels, sat_x : sat_x + self.sat_ds.chunk_pixels]
-    sat_img = Image.fromarray(sat_crop)
-
-    if self.uav_transform is not None:
-      uav_img = self.uav_transform(uav_img)
-    if self.sat_transform is not None:
-      sat_img = self.sat_transform(sat_img)
-
-    return uav_img, sat_img, lat, lon
 
 
 # ---------------------------------------------------------------------------
@@ -287,7 +179,7 @@ from torch.utils.data import ConcatDataset
 train_ds = ConcatDataset(
   [
     PairedUAVSatDataset(
-      VISLOC_ROOT, flight_id=fid, uav_transform=train_uav_transforms, sat_transform=train_sat_transforms
+      VISLOC_ROOT, flight_id=fid, uav_transform=train_sup_uav_transforms, sat_transform=train_sup_sat_transforms
     )
     for fid in FLIGHT_IDS
   ]
