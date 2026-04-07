@@ -58,6 +58,8 @@ Basically, the head learns per-scale/per-timestep weights -> multi-scale spatial
 
 Training data consists of pictures from 9 different flights shot on a Mavic-like drone in nadir, and a large satellite image of the location of the flight.
 
+This dataset provides UAV images as standalone images, and satellite images in a form of a large satellite shot in TIFF format. So it's up to us to chunk the satellite images for further usage. We chunk the satellite imagery to loosely match UAV images' granularity, and produce 256x256 chunks with stride of `size//4` to ensure UAV shots have a close enough chunk with similar coordinates and similar ground coverage.
+
 Training flights: `["01", "02", "04", "05", "06", "08", "09", "10", "11"]`, validation flight: `"03"`. The flights and a sample of the training data can be visually inspected in `notebooks/0-explore-visloc.ipynb`.
 
 Augmentations for UAV/satellite imagery include affine transforms, rotations, crops, and color alterations, and can be found in `src/datasets/visloc.py`. The order of these transforms is crucial, one experiment has been failed due to crops before applying geometric transforms, introducing black corners in images and corrupting training samples.

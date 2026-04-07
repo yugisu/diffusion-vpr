@@ -55,3 +55,8 @@ There are ways of improving this:
 - inspect other objectives that will force the model cross the domain gap between UAV and satellite imagery (InfoNCE might not be a suitable fit?)
 - inspect augmentation logic
 - contrastive loss with hard negative mining ?
+
+**Actual stuff to improve:**
+- training data is scuffed, augmentations introduce black corners making images borderline unusable; also, strong overly zoom ins, need to tune that
+- no negatives included in the training data as the model has only been trained on PAIRS, not on negative satellite imagery for which there is no corresponding UAV shots
+- ~~the embeddings should NOT be normalized during training~~ InfoNCE requires normalized embeddings due to dot-product.
