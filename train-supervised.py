@@ -1,29 +1,33 @@
 import time
+import warnings
 
 _script_start_time = time.time()
-print("Running train-supervised.py...")
 
+
+def log(*args):
+  print(f"[{time.time() - _script_start_time:.2f}s]", *args)
+
+
+log("Running train-supervised.py...")
+
+warnings.filterwarnings("ignore", ".*does not have many workers.*")
+warnings.filterwarnings("ignore", ".*pkg_resources is deprecated as an API.*")
+warnings.filterwarnings("ignore", ".*Importing from cross_attention is deprecated.*")
 ###
 
 import math
 import os
-import random
-import warnings
 from pathlib import Path
 from typing import Literal
 
 import lightning as L
-import numpy as np
 import torch
 import torch.nn.functional as F
-import torchvision.transforms.functional as TF
 from dotenv import load_dotenv
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
-from PIL import Image
 from torch import nn
-from torch.utils.data import ConcatDataset, DataLoader, Dataset
-from torchvision import transforms
+from torch.utils.data import ConcatDataset, DataLoader
 
 from src.backbone import DiffusionSatBackbone
 from src.datasets.visloc import (
@@ -38,11 +42,6 @@ from src.datasets.visloc import (
 from src.embedders import FuserEmbedder
 from src.ldm_extractor import LDMExtractorCfg
 from src.model import FuserEmbedderValidationMixin
-
-
-def log(*args):
-  print(f"[{time.time() - _script_start_time:.2f}s]", *args)
-
 
 log("Collecting .env...")
 
@@ -62,7 +61,6 @@ VAL_FLIGHT_ID = "03"
 
 L.seed_everything(RANDOM_SEED, workers=True)
 torch.set_float32_matmul_precision("high")
-warnings.filterwarnings("ignore", ".*does not have many workers.*")
 
 
 # ---------------------------------------------------------------------------
@@ -261,7 +259,7 @@ val_gallery_ds = SatChunkDataset(
   flight_id=VAL_FLIGHT_ID,
   chunk_pixels=512,
   stride_pixels=128,
-  scale_factor=0.25,
+  scale_factor=sat_scales["03"],
   transform=inference_sat_transforms,
 )
 val_gallery_loader = DataLoader(val_gallery_ds, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, shuffle=False)
