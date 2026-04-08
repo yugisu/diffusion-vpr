@@ -4,6 +4,11 @@ set -e
 ### Copy this file to the runpod instance.
 # scp -P PORT -i ~/.ssh/id_ed25519-personal setup-runpod.sh root@RUNPOD_IP:~/setup-runpod.sh
 
+### To start a persistent tmux session for training:
+# tmux new -s training
+### To reconnect to the tmux session after disconnecting:
+# tmux attach -t training
+
 # ============================================================
 # Private credentials — DO NOT commit this file
 # ============================================================
@@ -16,7 +21,7 @@ WANDB_API_KEY=""
 # System dependencies
 # ============================================================
 
-apt-get update && apt-get install -y unzip gh
+apt-get update && apt-get install -y unzip gh tmux
 command -v uv &>/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 command -v claude &>/dev/null || curl -fsSL https://claude.ai/install.sh | bash
 source "$HOME/.local/bin/env"
