@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+### Copy this file to the runpod instance.
+# scp -P PORT -i ~/.ssh/id_ed25519-personal setup-runpod.sh root@RUNPOD_IP:~/setup-runpod.sh
+
 # ============================================================
 # Private credentials — DO NOT commit this file
 # ============================================================
@@ -57,7 +60,7 @@ EOF
 mkdir -p /workspace/data && cd /workspace/data
 
 # --- VisLoc full dataset ---
-uvx gdown 1xYODANyilEMM3CfWh85APwkTHQeLTcCT -O visloc.zip
+uvx gdown 16vbbiV93rdQL2v_66ccrxICtROugkw2c -O visloc.zip
 unzip -q -u visloc.zip -d visloc
 mv visloc/'satellite_ coordinates_range.csv' visloc/satellite_coordinates_range.csv
 rm -f visloc.zip
