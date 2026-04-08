@@ -143,17 +143,64 @@ class SupervisedEmbedderModule(FuserEmbedderValidationMixin, L.LightningModule):
     loss_sat = F.cross_entropy(logits.T, labels)
     return (loss_uav + loss_sat) / 2
 
+  def _incomp_npair_loss(
+    self, uav_embs: torch.Tensor, sat_embs: torch.Tensor, ious: torch.Tensor, k: float = 10.0
+  ) -> torch.Tensor:
+    """Incomp-NPair loss (Li et al., 2025 — Remote Sens. 17(17), 3045).
+
+    Blends standard N-Pair loss with uniform N-Pair loss based on per-pair
+    IoU values. High-IoU pairs are pulled together strongly (standard N-Pair),
+    while low-IoU pairs contribute through a moderated, averaged loss.
+
+    Args:
+      uav_embs: (B, D) L2-normalized query embeddings.
+      sat_embs: (B, D) L2-normalized reference embeddings.
+      ious: (B,) IoU value for each (query, reference) pair.
+      k: Steepness of the sigmoid blending function.
+    """
+    tau = self.temperature.exp().clamp(max=100)
+    B = uav_embs.size(0)
+
+    # Similarity matrix (B, B): s_{ij} = F_{q_i}^T F_{r_j}
+    sim = uav_embs @ sat_embs.T
+
+    # Positive similarities on the diagonal
+    pos_sim = sim.diag()  # (B,)
+
+    # Difference matrix: (s_{ij} - s_{ii}) / tau  for all j
+    diff = (sim - pos_sim.unsqueeze(1)) / tau  # (B, B)
+
+    # Mask to exclude diagonal (j == i)
+    mask = ~torch.eye(B, dtype=torch.bool, device=sim.device)
+
+    # Eq. 1 — Standard N-Pair: L_i^NP = log(1 + sum_{j!=i} exp(diff_{ij}))
+    # Use logsumexp for numerical stability
+    diff_masked = diff.masked_fill(~mask, float("-inf"))
+    l_np = torch.log1p(torch.exp(torch.logsumexp(diff_masked, dim=1)))
+
+    # Eq. 3 — Uniform N-Pair: L_i^{U-NP} = 1/(n-1) sum_{j!=i} log(1+exp(diff_{ij}))
+    l_unp = (torch.log1p(diff.exp()) * mask).sum(dim=1) / (B - 1)
+
+    # Eq. 2 — IoU-based blending weight: alpha_i = sigma(k * IoU_i)
+    alpha = torch.sigmoid(k * ious)  # (B,)
+
+    # Eq. 4 — Combined: L_i = alpha_i * L_NP + (1 - alpha_i) * L_UNP
+    loss = alpha * l_np + (1 - alpha) * l_unp
+
+    return loss.mean()
+
   # ------------------------------------------------------------------
   # Training
   # ------------------------------------------------------------------
 
   def training_step(self, batch, _batch_idx):
-    uav_imgs, sat_imgs, _, _ = batch
+    uav_imgs, sat_imgs, _, _, ious = batch
     uav_embs = self._embed_train(uav_imgs)
     sat_embs = self._embed_train(sat_imgs)
-    loss = self._infonce_loss(uav_embs, sat_embs)
+    loss = self._incomp_npair_loss(uav_embs, sat_embs, ious)
     self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=True)
     self.log("train/temperature", self.temperature.exp(), on_step=True)
+    self.log("train/mean_iou", ious.mean(), on_step=False, on_epoch=True)
     return loss
 
   # ------------------------------------------------------------------
@@ -163,20 +210,7 @@ class SupervisedEmbedderModule(FuserEmbedderValidationMixin, L.LightningModule):
   def configure_optimizers(self):
     hp = self.hparams
     params = list(self.embedder.parameters()) + [self.temperature]
-    optimizer = torch.optim.AdamW(params, lr=hp.lr, weight_decay=hp.weight_decay)
-
-    total_steps = self.trainer.estimated_stepping_batches
-    steps_per_epoch = max(1, total_steps // hp.max_train_epochs)
-    warmup_steps = hp.warmup_epochs * steps_per_epoch
-
-    def lr_lambda(step: int) -> float:
-      if step < warmup_steps:
-        return step / max(1, warmup_steps)
-      t = (step - warmup_steps) / max(1, total_steps - warmup_steps)
-      return max(hp.min_lr / hp.lr, 0.5 * (1.0 + math.cos(math.pi * t)))
-
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
-    return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "interval": "step"}}
+    return torch.optim.AdamW(params, lr=hp.lr, weight_decay=hp.weight_decay)
 
 
 # ---------------------------------------------------------------------------

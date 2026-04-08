@@ -1,3 +1,4 @@
+import math
 import random
 from pathlib import Path
 
@@ -8,6 +9,7 @@ import torchvision.transforms.functional as TF
 from PIL import Image
 from rasterio.enums import Resampling
 from rasterio.merge import merge as rasterio_merge
+from shapely.geometry import Polygon, box
 from torch.utils.data import Dataset
 from torchvision import transforms
 
@@ -24,6 +26,63 @@ def _read_sat_bounds(root: Path, flight_id: str) -> tuple[float, float, float, f
   )
 
 
+# VisLoc drone images are 3976x2652 px (or 3000x2000 for some flights).
+# The README states ~0.1-0.2 m/px ground resolution. Using 0.15 m/px at
+# ~500 m altitude gives a GSD-to-height ratio K ≈ 3333 (500 / 0.15).
+# GSD(h) = h / K, so ground extent = image_pixels * h / K.
+_GSD_K = 3333.0
+_UAV_IMG_W_PX = 3976.0
+_UAV_IMG_H_PX = 2652.0
+
+
+def _uav_footprint_polygon(
+  lat: float, lon: float, height: float, heading_deg: float, img_w_px: int, img_h_px: int
+) -> Polygon:
+  """Compute the rotated ground footprint of a nadir-pointing UAV camera.
+
+  The footprint rectangle is rotated by the drone heading angle (Phi),
+  measured as degrees from North (clockwise positive).
+
+  Returns a Shapely Polygon in (lon, lat) coordinates.
+  """
+  gsd = height / _GSD_K  # metres per pixel
+  half_w_m = img_w_px * gsd / 2
+  half_h_m = img_h_px * gsd / 2
+
+  # Convert heading to radians (clockwise from North → math angle)
+  theta = math.radians(heading_deg)
+  cos_t, sin_t = math.cos(theta), math.sin(theta)
+
+  # Metre-to-degree conversion at this latitude
+  m2lat = 1.0 / 111_111
+  m2lon = 1.0 / (111_111 * math.cos(math.radians(lat)))
+
+  # Corners in local metre frame (x=East, y=North), then rotate by heading
+  corners_m = [
+    (-half_w_m, -half_h_m),
+    (+half_w_m, -half_h_m),
+    (+half_w_m, +half_h_m),
+    (-half_w_m, +half_h_m),
+  ]
+  corners_lonlat = []
+  for dx, dy in corners_m:
+    # Rotate by heading (clockwise from North)
+    rx = dx * cos_t + dy * sin_t
+    ry = -dx * sin_t + dy * cos_t
+    corners_lonlat.append((lon + rx * m2lon, lat + ry * m2lat))
+
+  return Polygon(corners_lonlat)
+
+
+def _polygon_iou(poly: Polygon, bbox: tuple[float, float, float, float]) -> float:
+  """IoU between a Shapely Polygon and an axis-aligned bbox (lat_min, lon_min, lat_max, lon_max)."""
+  lat_min, lon_min, lat_max, lon_max = bbox
+  rect = box(lon_min, lat_min, lon_max, lat_max)  # box(minx, miny, maxx, maxy)
+  inter = poly.intersection(rect).area
+  union = poly.area + rect.area - inter
+  return inter / union if union > 0 else 0.0
+
+
 class UAVDataset(Dataset):
   """VisLoc UAV drone images. Used as the query set for evaluation only - never for training."""
 
@@ -31,7 +90,7 @@ class UAVDataset(Dataset):
     self.drone_dir = root / flight_id / "drone"
     self.transform = transform
     df = pd.read_csv(root / flight_id / f"{flight_id}.csv")
-    self.records = df[["filename", "lat", "lon"]].reset_index(drop=True)
+    self.records = df[["filename", "lat", "lon", "height", "Phi1"]].reset_index(drop=True)
 
   def __len__(self) -> int:
     return len(self.records)
@@ -186,6 +245,8 @@ class PairedUAVSatDataset(Dataset):
     uav_row = self.uav_ds.records.iloc[idx]
     uav_img = Image.open(self.uav_ds.drone_dir / uav_row["filename"]).convert("RGB")
     lat, lon = float(uav_row["lat"]), float(uav_row["lon"])
+    height = float(uav_row["height"])
+    heading = float(uav_row["Phi1"])
 
     # Matched satellite chunk — sample uniformly from top-k closest by GPS.
     sat_idx = int(random.choice(self.sat_top_k[idx]))
@@ -193,12 +254,18 @@ class PairedUAVSatDataset(Dataset):
     sat_crop = self.sat_ds._img[sat_y : sat_y + self.sat_ds.chunk_pixels, sat_x : sat_x + self.sat_ds.chunk_pixels]
     sat_img = Image.fromarray(sat_crop)
 
+    # Geographic IoU between rotated UAV footprint and satellite chunk
+    img_w, img_h = uav_img.size  # PIL: (width, height)
+    uav_poly = _uav_footprint_polygon(lat, lon, height, heading, img_w, img_h)
+    sat_bbox = self.sat_ds._bboxes[sat_idx]
+    iou = _polygon_iou(uav_poly, sat_bbox)
+
     if self.uav_transform is not None:
       uav_img = self.uav_transform(uav_img)
     if self.sat_transform is not None:
       sat_img = self.sat_transform(sat_img)
 
-    return uav_img, sat_img, lat, lon
+    return uav_img, sat_img, lat, lon, iou
 
 
 _random_90 = transforms.Lambda(lambda img: TF.rotate(img, random.choice([0, 90, 180, 270])))
