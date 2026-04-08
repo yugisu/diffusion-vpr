@@ -245,7 +245,7 @@ train_loader = DataLoader(
   drop_last=True,
 )
 
-log("Training pairs: {len(train_ds)} across {len(FLIGHT_IDS)} flights")
+log(f"Training pairs: {len(train_ds)} across {len(FLIGHT_IDS)} flights")
 
 log("Setting up validation datasets...")
 
@@ -294,7 +294,7 @@ model = SupervisedEmbedderModule(
 
 log("Model hparams:")
 for name, param in model.hparams.items():
-  print("  {name}: {param}")
+  print(f"  {name}: {param}")
 
 
 # ---------------------------------------------------------------------------

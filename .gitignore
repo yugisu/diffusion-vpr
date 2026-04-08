@@ -13,6 +13,6 @@ dist/
 .claude
 
 .env
-lightning_logs/
-wandb/
-checkpoints/
+lightning_logs
+wandb
+checkpoints
