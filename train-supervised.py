@@ -1,5 +1,3 @@
-from src.model import FuserEmbedderValidationMixin
-
 print("Running train-supervised.py...")
 import math
 import os
@@ -18,7 +16,7 @@ from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
 from PIL import Image
 from torch import nn
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import ConcatDataset, DataLoader, Dataset
 from torchvision import transforms
 
 from src.backbone import DiffusionSatBackbone
@@ -33,6 +31,7 @@ from src.datasets.visloc import (
 )
 from src.embedders import FuserEmbedder
 from src.ldm_extractor import LDMExtractorCfg
+from src.model import FuserEmbedderValidationMixin
 
 print("Collecting .env...")
 
@@ -174,15 +173,58 @@ class SupervisedEmbedderModule(FuserEmbedderValidationMixin, L.LightningModule):
 
 print("Setting up training dataset...")
 
-from torch.utils.data import ConcatDataset
+# Empirical satellite map scales for 512x512 satellite chunks so they rouyghly match the UAV FoV.
+sat_scales = {
+  "01": 0.25,
+  "02": 0.25,
+  "03": 0.25,
+  "04": 0.25,
+  "05": 0.4,
+  "06": 0.6,
+  "08": 0.35,
+  "09": 0.25,
+  "10": 0.5,
+  "11": 0.25,
+}
 
+# Multi-scale dataset
 train_ds = ConcatDataset(
-  [
-    PairedUAVSatDataset(
-      VISLOC_ROOT, flight_id=fid, uav_transform=train_sup_uav_transforms, sat_transform=train_sup_sat_transforms
-    )
-    for fid in FLIGHT_IDS
-  ]
+  (
+    [
+      PairedUAVSatDataset(
+        VISLOC_ROOT,
+        flight_id=flight_id,
+        sat_scale_factor=sat_scales[flight_id],
+        sat_transform=train_sup_sat_transforms,
+        uav_transform=train_sup_uav_transforms,
+      )
+      for flight_id in FLIGHT_IDS
+    ]
+  )
+  + (
+    [
+      PairedUAVSatDataset(
+        VISLOC_ROOT,
+        flight_id=flight_id,
+        sat_scale_factor=sat_scales[flight_id] / 1.5,
+        sat_transform=train_sup_sat_transforms,
+        uav_transform=train_sup_uav_transforms,
+      )
+      for flight_id in FLIGHT_IDS
+    ]
+  )
+  + (
+    [
+      PairedUAVSatDataset(
+        VISLOC_ROOT,
+        flight_id=flight_id,
+        sat_scale_factor=sat_scales[flight_id] * 1.5,
+        sat_transform=train_sup_sat_transforms,
+        uav_transform=train_sup_uav_transforms,
+      )
+      for flight_id in FLIGHT_IDS
+    ]
+  )
 )
 train_loader = DataLoader(
   train_ds,

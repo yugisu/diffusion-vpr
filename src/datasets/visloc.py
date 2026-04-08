@@ -244,17 +244,16 @@ train_sat_uav_sim_transforms = transforms.Compose(
 train_sup_uav_transforms = transforms.Compose(
   [
     # Geometric
-    transforms.Resize(300),
-    transforms.RandomResizedCrop(256, scale=(0.65, 1.0), ratio=(0.85, 1.15)),
+    transforms.Resize(512),  # we resize the input image to apply geometric augmentations.
     _random_90,
+    transforms.RandomResizedCrop((384, 384), scale=(0.9, 1.0), ratio=(0.85, 1.15)),
     transforms.RandomRotation(degrees=15),
     transforms.RandomPerspective(distortion_scale=0.1, p=0.4),
+    transforms.CenterCrop((256, 256)),
     # Photometric - UAV images often have different exposure, haze, and sensor response
     transforms.RandomApply([transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.3, hue=0.08)], p=0.8),
     transforms.RandomGrayscale(p=0.05),
-    transforms.RandomApply([transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 2.0))], p=0.3),
-    # Simulate motion blur from drone movement
-    transforms.RandomApply([transforms.GaussianBlur(kernel_size=(1, 7), sigma=(0.1, 1.0))], p=0.15),
+    transforms.RandomApply([transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 1.5))], p=0.3),
     transforms.ToTensor(),
     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
   ]
@@ -263,14 +262,14 @@ train_sup_uav_transforms = transforms.Compose(
 # Satellite augmentation for supervised training
 train_sup_sat_transforms = transforms.Compose(
   [
-    # Geometric - satellite tiles can appear at any orientation and scale
-    transforms.Resize(300),
-    transforms.RandomResizedCrop(256, scale=(0.65, 1.0), ratio=(0.85, 1.15)),
+    # Geometric
+    transforms.Resize(512),  # we resize the input image to apply geometric augmentations.
+    transforms.RandomResizedCrop((256, 256), scale=(0.85, 1.0), ratio=(0.85, 1.15)),
     _random_90,
     # Photometric - sensor/season/time-of-day variation
     transforms.RandomApply([transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.3, hue=0.08)], p=0.8),
     transforms.RandomGrayscale(p=0.05),
-    transforms.RandomApply([transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 2.0))], p=0.3),
+    transforms.RandomApply([transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 1.5))], p=0.3),
     transforms.ToTensor(),
     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
   ]
