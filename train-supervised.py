@@ -257,7 +257,7 @@ val_gallery_loader = DataLoader(val_gallery_ds, batch_size=BATCH_SIZE, num_worke
 # Model
 # ---------------------------------------------------------------------------
 
-MAX_EPOCHS = 50
+MAX_EPOCHS = 20
 
 print("Setting up backbone...")
 
