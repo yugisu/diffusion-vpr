@@ -50,10 +50,13 @@ load_dotenv()
 
 VISLOC_ROOT = Path(os.environ["VISLOC_ROOT"])
 DIFFUSIONSAT_256_CHCKPT = Path(os.environ["DIFFUSIONSAT_256_CHCKPT"])
-RANDOM_SEED = 42
 DEVICE = torch.device("cuda")
+
+RANDOM_SEED = 42
 NUM_WORKERS = 8
+
 BATCH_SIZE = 256
+MAX_EPOCHS = 7
 FLIGHT_IDS = ["01", "02", "04", "05", "06", "08", "09", "10", "11"]
 VAL_FLIGHT_ID = "03"
 
@@ -267,8 +270,6 @@ val_gallery_loader = DataLoader(val_gallery_ds, batch_size=BATCH_SIZE, num_worke
 # ---------------------------------------------------------------------------
 # Model
 # ---------------------------------------------------------------------------
-
-MAX_EPOCHS = 20
 
 log("Setting up backbone...")
 
