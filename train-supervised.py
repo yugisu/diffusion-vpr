@@ -1,4 +1,10 @@
+import time
+
+_script_start_time = time.time()
 print("Running train-supervised.py...")
+
+###
+
 import math
 import os
 import random
@@ -33,7 +39,12 @@ from src.embedders import FuserEmbedder
 from src.ldm_extractor import LDMExtractorCfg
 from src.model import FuserEmbedderValidationMixin
 
-print("Collecting .env...")
+
+def log(*args):
+  print(f"[{time.time() - _script_start_time:.2f}s]", *args)
+
+
+log("Collecting .env...")
 
 load_dotenv()
 
@@ -171,7 +182,7 @@ class SupervisedEmbedderModule(FuserEmbedderValidationMixin, L.LightningModule):
 # Datasets & dataloaders
 # ---------------------------------------------------------------------------
 
-print("Setting up training dataset...")
+log("Setting up training dataset...")
 
 # Empirical satellite map scales for 512x512 satellite chunks so they rouyghly match the UAV FoV.
 sat_scales = {
@@ -234,9 +245,9 @@ train_loader = DataLoader(
   drop_last=True,
 )
 
-print(f"Training pairs: {len(train_ds)} across {len(FLIGHT_IDS)} flights")
+log("Training pairs: {len(train_ds)} across {len(FLIGHT_IDS)} flights")
 
-print("Setting up validation datasets...")
+log("Setting up validation datasets...")
 
 
 val_query_ds = UAVDataset(VISLOC_ROOT, flight_id=VAL_FLIGHT_ID, transform=inference_uav_transforms)
@@ -259,11 +270,11 @@ val_gallery_loader = DataLoader(val_gallery_ds, batch_size=BATCH_SIZE, num_worke
 
 MAX_EPOCHS = 20
 
-print("Setting up backbone...")
+log("Setting up backbone...")
 
 backbone = DiffusionSatBackbone(DIFFUSIONSAT_256_CHCKPT, DEVICE, dtype=torch.bfloat16)
 
-print("Setting up model...")
+log("Setting up model...")
 
 model = SupervisedEmbedderModule(
   backbone=backbone,
@@ -281,16 +292,16 @@ model = SupervisedEmbedderModule(
   min_lr=1e-4,
 )
 
-print("Model hparams:")
+log("Model hparams:")
 for name, param in model.hparams.items():
-  print(f"  {name}: {param}")
+  print("  {name}: {param}")
 
 
 # ---------------------------------------------------------------------------
 # Logger & callbacks
 # ---------------------------------------------------------------------------
 
-print("Setting up logger and callbacks...")
+log("Setting up logger and callbacks...")
 
 wandb_logger = WandbLogger(project="diffusion-vpr", log_model=False)
 wandb_logger.log_hyperparams(
@@ -318,7 +329,7 @@ lr_monitor = LearningRateMonitor(logging_interval="step")
 # Train
 # ---------------------------------------------------------------------------
 
-print("Setting up trainer...")
+log("Setting up trainer...")
 
 trainer = L.Trainer(
   max_epochs=MAX_EPOCHS,
@@ -332,6 +343,6 @@ trainer = L.Trainer(
   gradient_clip_val=1.0,
 )
 
-print("Starting training!")
+log("Starting training!")
 
 trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_query_loader)
