@@ -40,23 +40,32 @@ gh auth setup-git
 # Repositories
 # ============================================================
 
-cd /workspace
+cd /root
 
 [ -d SatDiFuser ] || git clone https://github.com/yugisu/SatDiFuser.git
 cd SatDiFuser && git checkout research && cd ..
 
 [ -d diffusion-vpr ] || git clone https://github.com/yugisu/diffusion-vpr.git
 cd diffusion-vpr
-UV_PROJECT_ENVIRONMENT=/root/.venv-diffusion-vpr uv sync
-ln -s /root/.venv-diffusion-vpr /workspace/diffusion-vpr/.venv
+uv sync
 
-
+# Populate .env file
 cat > .env <<EOF
 VISLOC_ROOT="/workspace/data/visloc"
 SECO_ROOT="/workspace/data/seco_100k/seasonal_contrast_100k"
 DIFFUSIONSAT_256_CHCKPT="/workspace/checkpoints/finetune_sd21_256_sn-satlas-fmow_snr5_md7norm_bs64_trimmed"
 WANDB_API_KEY="$WANDB_API_KEY"
 EOF
+
+STATE_DIR="/workspace/state"
+
+# Preserve state
+mkdir -p $STATE_DIR/lightning_logs/
+[ -d lightning_logs ] || ln -s $STATE_DIR/lightning_logs/ lightning_logs
+mkdir -p $STATE_DIR/wandb/
+[ -d wandb ] || ln -s $STATE_DIR/wandb/ wandb
+mkdir -p $STATE_DIR/checkpoints/
+[ -d checkpoints ] || ln -s $STATE_DIR/checkpoints/ checkpoints
 
 # ============================================================
 # Data
@@ -107,15 +116,15 @@ mkdir -p /workspace/checkpoints && cd /workspace/checkpoints
 # VS Code CLI + extensions
 # ============================================================
 
-curl -Lk 'https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64' -o /tmp/vscode_cli.tar.gz
-tar -xf /tmp/vscode_cli.tar.gz -C /usr/local/bin/
-rm /tmp/vscode_cli.tar.gz
+# curl -Lk 'https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64' -o /tmp/vscode_cli.tar.gz
+# tar -xf /tmp/vscode_cli.tar.gz -C /usr/local/bin/
+# rm /tmp/vscode_cli.tar.gz
 
-code --install-extension "astral-sh.type"
-code --install-extension "ms-python.pythonpe"
-code --install-extension "ms-toolsai.jupyterpe"
-code --install-extension "charliermarsh.ruffpe"
-code --install-extension "anthropic.claude-codepe"
+# code --install-extension "astral-sh.type"
+# code --install-extension "ms-python.pythonpe"
+# code --install-extension "ms-toolsai.jupyterpe"
+# code --install-extension "charliermarsh.ruffpe"
+# code --install-extension "anthropic.claude-codepe"
 
 
 echo ""
