@@ -86,3 +86,9 @@ https://wandb.ai/dmytrii-puzyr-ukrainian-catholic-university/diffusion-vpr/runs/
 Changed the LR scheduler to a simple AdamW with lr=1e-2 with no warmup, the loss oscillates during the whole epoch so it's not changing.
 
 Bringing the old scheduler back.
+
+### leafy-violet-13
+
+https://wandb.ai/dmytrii-puzyr-ukrainian-catholic-university/diffusion-vpr/runs/4et07scq?nw=nwuserdmytriipuzyr
+
+ok this new loss is definitely broken, fixing

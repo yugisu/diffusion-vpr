@@ -158,28 +158,27 @@ class SupervisedEmbedderModule(FuserEmbedderValidationMixin, L.LightningModule):
       ious: (B,) IoU value for each (query, reference) pair.
       k: Steepness of the sigmoid blending function.
     """
-    tau = self.temperature.exp().clamp(max=100)
+    logit_scale = self.temperature.exp().clamp(max=100)
     B = uav_embs.size(0)
 
-    # Similarity matrix (B, B): s_{ij} = F_{q_i}^T F_{r_j}
-    sim = uav_embs @ sat_embs.T
+    # Similarity matrix (B, B): s_{ij} = F_{q_i}^T F_{r_j}, scaled by 1/τ
+    sim = logit_scale * (uav_embs @ sat_embs.T)
 
     # Positive similarities on the diagonal
     pos_sim = sim.diag()  # (B,)
 
-    # Difference matrix: (s_{ij} - s_{ii}) / tau  for all j
-    diff = (sim - pos_sim.unsqueeze(1)) / tau  # (B, B)
+    # Difference matrix: s_{ij} - s_{ii} for all j
+    diff = sim - pos_sim.unsqueeze(1)  # (B, B)
 
     # Mask to exclude diagonal (j == i)
     mask = ~torch.eye(B, dtype=torch.bool, device=sim.device)
 
     # Eq. 1 — Standard N-Pair: L_i^NP = log(1 + sum_{j!=i} exp(diff_{ij}))
-    # Use logsumexp for numerical stability
     diff_masked = diff.masked_fill(~mask, float("-inf"))
-    l_np = torch.log1p(torch.exp(torch.logsumexp(diff_masked, dim=1)))
+    l_np = torch.logsumexp(torch.cat([torch.zeros(B, 1, device=sim.device), diff_masked], dim=1), dim=1)
 
     # Eq. 3 — Uniform N-Pair: L_i^{U-NP} = 1/(n-1) sum_{j!=i} log(1+exp(diff_{ij}))
-    l_unp = (torch.log1p(diff.exp()) * mask).sum(dim=1) / (B - 1)
+    l_unp = (F.softplus(diff) * mask).sum(dim=1) / (B - 1)
 
     # Eq. 2 — IoU-based blending weight: alpha_i = sigma(k * IoU_i)
     alpha = torch.sigmoid(k * ious)  # (B,)
