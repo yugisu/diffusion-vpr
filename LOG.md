@@ -73,3 +73,16 @@ VAL_FLIGHT_ID = "03"
 ```
 
 Although data augmentations have been changed, the results didn't change significantly. Although the amount of epochs have been decreased, samples have been tripled with different satellite map scales.
+
+Next steps:
+- try another objective
+- simplify the LR scheduler
+- make augmentations easier, remove them from satellite images
+
+### amber-blaze-12
+
+https://wandb.ai/dmytrii-puzyr-ukrainian-catholic-university/diffusion-vpr/runs/aep16hqj
+
+Changed the LR scheduler to a simple AdamW with lr=1e-2 with no warmup, the loss oscillates during the whole epoch so it's not changing.
+
+Bringing the old scheduler back.

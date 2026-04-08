@@ -210,7 +210,20 @@ class SupervisedEmbedderModule(FuserEmbedderValidationMixin, L.LightningModule):
   def configure_optimizers(self):
     hp = self.hparams
     params = list(self.embedder.parameters()) + [self.temperature]
-    return torch.optim.AdamW(params, lr=hp.lr, weight_decay=hp.weight_decay)
+    optimizer = torch.optim.AdamW(params, lr=hp.lr, weight_decay=hp.weight_decay)
+
+    total_steps = self.trainer.estimated_stepping_batches
+    steps_per_epoch = max(1, total_steps // hp.max_train_epochs)
+    warmup_steps = hp.warmup_epochs * steps_per_epoch
+
+    def lr_lambda(step: int) -> float:
+      if step < warmup_steps:
+        return step / max(1, warmup_steps)
+      t = (step - warmup_steps) / max(1, total_steps - warmup_steps)
+      return max(hp.min_lr / hp.lr, 0.5 * (1.0 + math.cos(math.pi * t)))
+
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+    return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "interval": "step"}}
 
 
 # ---------------------------------------------------------------------------
