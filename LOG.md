@@ -60,3 +60,16 @@ There are ways of improving this:
 - training data is scuffed, augmentations introduce black corners making images borderline unusable; also, strong overly zoom ins, need to tune that
 - no negatives included in the training data as the model has only been trained on PAIRS, not on negative satellite imagery for which there is no corresponding UAV shots
 - ~~the embeddings should NOT be normalized during training~~ InfoNCE requires normalized embeddings due to dot-product.
+
+### unique-grass-11
+
+https://wandb.ai/dmytrii-puzyr-ukrainian-catholic-university/diffusion-vpr/runs/cnaf7ix4
+
+Supervised training of the embedder head. 7 epochs, R@1 10.6%, R@5 26.9%, R@10 37.6%.
+
+```
+FLIGHT_IDS = ["01", "02", "04", "05", "06", "08", "09", "10", "11"]
+VAL_FLIGHT_ID = "03"
+```
+
+Although data augmentations have been changed, the results didn't change significantly. Although the amount of epochs have been decreased, samples have been tripled with different satellite map scales.
