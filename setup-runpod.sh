@@ -17,8 +17,8 @@ WANDB_API_KEY=""
 # ============================================================
 
 apt-get update && apt-get install -y unzip gh
-curl -LsSf https://astral.sh/uv/install.sh | sh
-curl -fsSL https://claude.ai/install.sh | bash
+command -v uv &>/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
+command -v claude &>/dev/null || curl -fsSL https://claude.ai/install.sh | bash
 source "$HOME/.local/bin/env"
 
 # ============================================================
@@ -28,7 +28,7 @@ source "$HOME/.local/bin/env"
 git config --global user.name "$GIT_USER_NAME"
 git config --global user.email "$GIT_USER_EMAIL"
 
-gh auth login --web
+gh auth status &>/dev/null || gh auth login --web
 gh auth setup-git
 
 # ============================================================
@@ -37,10 +37,10 @@ gh auth setup-git
 
 cd /workspace
 
-git clone https://github.com/yugisu/SatDiFuser.git
+[ -d SatDiFuser ] || git clone https://github.com/yugisu/SatDiFuser.git
 cd SatDiFuser && git checkout research && cd ..
 
-git clone https://github.com/yugisu/diffusion-vpr.git
+[ -d diffusion-vpr ] || git clone https://github.com/yugisu/diffusion-vpr.git
 cd diffusion-vpr
 UV_PROJECT_ENVIRONMENT=/root/.venv-diffusion-vpr uv sync
 ln -s /root/.venv-diffusion-vpr /workspace/diffusion-vpr/.venv
@@ -60,10 +60,12 @@ EOF
 mkdir -p /workspace/data && cd /workspace/data
 
 # --- VisLoc full dataset ---
-uvx gdown 16vbbiV93rdQL2v_66ccrxICtROugkw2c -O visloc.zip
-unzip -q -u visloc.zip -d visloc
-mv visloc/'satellite_ coordinates_range.csv' visloc/satellite_coordinates_range.csv
-rm -f visloc.zip
+if [ ! -d /workspace/data/visloc ]; then
+  uvx gdown 16vbbiV93rdQL2v_66ccrxICtROugkw2c -O visloc.zip
+  unzip -q -u visloc.zip -d visloc
+  mv visloc/'satellite_ coordinates_range.csv' visloc/satellite_coordinates_range.csv
+  rm -f visloc.zip
+fi
 
 # # --- VisLoc example dataset ---
 # uvx gdown 16tY7tPZiNIoyAhknvyXnp0jAfccIcHtL -O visloc_example.zip
@@ -94,7 +96,7 @@ rm -f visloc.zip
 mkdir -p /workspace/checkpoints && cd /workspace/checkpoints
 
 # Trimmed DiffusionSat 256 checkpoint at 150k steps
-uvx gdown --folder 1VG4yV_fD9UhOa30JzsNRdTwG4cdeJlmX -O checkpoints/finetune_sd21_256_sn-satlas-fmow_snr5_md7norm_bs64_trimmed
+[ -d /workspace/checkpoints/finetune_sd21_256_sn-satlas-fmow_snr5_md7norm_bs64_trimmed ] || uvx gdown --folder 1VG4yV_fD9UhOa30JzsNRdTwG4cdeJlmX -O finetune_sd21_256_sn-satlas-fmow_snr5_md7norm_bs64_trimmed
 
 # ============================================================
 # VS Code CLI + extensions
@@ -104,9 +106,11 @@ curl -Lk 'https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-
 tar -xf /tmp/vscode_cli.tar.gz -C /usr/local/bin/
 rm /tmp/vscode_cli.tar.gz
 
-code --install-extension astral-sh.ty
-code --install-extension ms-python.python
-code --install-extension anthropic.claude-code
+code --install-extension "astral-sh.type"
+code --install-extension "ms-python.pythonpe"
+code --install-extension "ms-toolsai.jupyterpe"
+code --install-extension "charliermarsh.ruffpe"
+code --install-extension "anthropic.claude-codepe"
 
 
 echo ""
