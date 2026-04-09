@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+### IMPORTANT: Machine requirements
+# - 30GB of container disk
+# - 90GB of pod volume
+# - A100 instance is good
+
 ### Copy this file to the runpod instance.
 # scp -P PORT -i ~/.ssh/id_ed25519-personal setup-runpod.sh root@RUNPOD_IP:~/setup-runpod.sh
 
