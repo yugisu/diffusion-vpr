@@ -45,6 +45,8 @@ cd /root
 
 [ -d SatDiFuser ] || git clone https://github.com/yugisu/SatDiFuser.git
 cd SatDiFuser && git checkout research && cd ..
+[ -d dift ] || git clone https://github.com/yugisu/dift.git
+cd dift && git checkout research && cd ..
 
 [ -d diffusion-vpr ] || git clone https://github.com/yugisu/diffusion-vpr.git
 cd diffusion-vpr
