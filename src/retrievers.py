@@ -1,3 +1,5 @@
+from typing import Literal
+
 import faiss
 import numpy as np
 import torch
@@ -6,19 +8,19 @@ import torch
 class FAISSRetriever:
   """Uses cosine similarity; assumes database and query embeddings are L2-normalized."""
 
-  def __init__(self, database_embeddings: torch.Tensor):
+  def __init__(self, database_embeddings: torch.Tensor, type: Literal["l2", "ip"] = "ip"):
     self.database_embeddings = database_embeddings
+    self.type = type
 
-    self.index = faiss.IndexFlatIP(database_embeddings.shape[1])
+    if type == "ip":
+      self.index = faiss.IndexFlatIP(database_embeddings.shape[1])
+    elif type == "l2":
+      self.index = faiss.IndexFlatL2(database_embeddings.shape[1])
 
-    g_np = np.ascontiguousarray(
-      database_embeddings.detach().cpu().numpy().astype(np.float32)
-    )
+    g_np = np.ascontiguousarray(database_embeddings.detach().cpu().numpy().astype(np.float32))
     self.index.add(g_np)  # ty:ignore[missing-argument]
 
   def search(self, query_embeddings: torch.Tensor, k: int = 10):
-    q_np = np.ascontiguousarray(
-      query_embeddings.detach().cpu().numpy().astype(np.float32)
-    )
+    q_np = np.ascontiguousarray(query_embeddings.detach().cpu().numpy().astype(np.float32))
     distances, indices = self.index.search(q_np, k)  # ty:ignore[missing-argument]
     return distances, indices

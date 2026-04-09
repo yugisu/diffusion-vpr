@@ -16,6 +16,7 @@ set -e
 GIT_USER_NAME=""
 GIT_USER_EMAIL=""
 WANDB_API_KEY=""
+HF_TOKEN=""
 
 # ============================================================
 # System dependencies
@@ -54,7 +55,9 @@ cat > .env <<EOF
 VISLOC_ROOT="/workspace/data/visloc"
 SECO_ROOT="/workspace/data/seco_100k/seasonal_contrast_100k"
 DIFFUSIONSAT_256_CHCKPT="/workspace/checkpoints/finetune_sd21_256_sn-satlas-fmow_snr5_md7norm_bs64_trimmed"
+HF_HOME="/workspace/.hugging_face"
 WANDB_API_KEY="$WANDB_API_KEY"
+HF_TOKEN="$HF_TOKEN"
 EOF
 
 STATE_DIR="/workspace/state"
