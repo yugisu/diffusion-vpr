@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(date:*)",
+      "Bash(diff:*)",
+      "Bash(jq:*)",
+      "Bash(file:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(head:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(pwd:*)",
+      "Bash(rg:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(which:*)",
+      "Bash(tree:*)",
+
+      "Read(../SatDiFuser)",
+      "Read(../caevl)",
+      "Read(../dift)",
+
+      "WebFetch(domain:arxiv.org)",
+      "WebFetch(domain:www.mdpi.com)",
+      "WebFetch(domain:www.researchgate.net)",
+      "WebFetch(domain:mdpi-res.com)",
+      "WebFetch(domain:scholar.google.com)"
+    ],
+    "deny": ["Read(./.env)"]
+  },
+  "autoMemoryEnabled": true
+}
