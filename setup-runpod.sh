@@ -44,7 +44,7 @@ source "$HOME/.local/bin/env"
 git config --global user.name "$GIT_USER_NAME"
 git config --global user.email "$GIT_USER_EMAIL"
 
-echo "$GH_TOKEN" | gh auth login --with-token
+# echo "$GH_TOKEN" | gh auth login --with-token # GH_TOKEN in env is being used as identifier
 gh auth setup-git
 
 # ============================================================
