@@ -57,6 +57,8 @@ cd /root
 cd SatDiFuser && git checkout research && cd ..
 [ -d dift ] || git clone https://github.com/yugisu/dift.git
 cd dift && git checkout research && cd ..
+[ -d diffusion_hyperfeatures ] || git clone https://github.com/diffusion-hyperfeatures/diffusion_hyperfeatures.git
+# cd diffusion_hyperfeatures && git checkout research && cd ..
 
 [ -d diffusion-vpr ] || git clone https://github.com/yugisu/diffusion-vpr.git
 cd diffusion-vpr
