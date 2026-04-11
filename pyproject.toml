@@ -19,6 +19,7 @@ dependencies = [
     "wandb>=0.25.1",
     "shapely>=2.1.2",
     "open-clip-torch>=3.3.0",
+    "opencv-python>=4.11.0.86",
 ]
 
 [dependency-groups]
