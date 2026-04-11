@@ -15,13 +15,18 @@ set -e
 # tmux attach -t training
 
 # ============================================================
-# Private credentials — DO NOT commit this file
+# NOTE: Required private env variables. Should be provided by the instance.
 # ============================================================
 
-GIT_USER_NAME=""
-GIT_USER_EMAIL=""
-WANDB_API_KEY=""
-HF_TOKEN=""
+# GIT_USER_NAME=""
+# GIT_USER_EMAIL=""
+# GH_TOKEN=""
+# WANDB_API_KEY=""
+# HF_TOKEN=""
+
+for var in GIT_USER_NAME GIT_USER_EMAIL GH_TOKEN WANDB_API_KEY HF_TOKEN; do
+  [ -n "${!var}" ] || { echo "ERROR: $var is not set"; exit 1; }
+done
 
 # ============================================================
 # System dependencies
@@ -39,7 +44,7 @@ source "$HOME/.local/bin/env"
 git config --global user.name "$GIT_USER_NAME"
 git config --global user.email "$GIT_USER_EMAIL"
 
-gh auth status &>/dev/null || gh auth login --web
+echo "$GH_TOKEN" | gh auth login --with-token
 gh auth setup-git
 
 # ============================================================
@@ -71,11 +76,11 @@ STATE_DIR="/workspace/state"
 
 # Preserve state
 mkdir -p $STATE_DIR/lightning_logs/
-[ -d lightning_logs ] || ln -s $STATE_DIR/lightning_logs/ lightning_logs
+[ -e lightning_logs ] || ln -s $STATE_DIR/lightning_logs/ lightning_logs
 mkdir -p $STATE_DIR/wandb/
-[ -d wandb ] || ln -s $STATE_DIR/wandb/ wandb
+[ -e wandb ] || ln -s $STATE_DIR/wandb/ wandb
 mkdir -p $STATE_DIR/checkpoints/
-[ -d checkpoints ] || ln -s $STATE_DIR/checkpoints/ checkpoints
+[ -e checkpoints ] || ln -s $STATE_DIR/checkpoints/ checkpoints
 
 # ============================================================
 # Data
