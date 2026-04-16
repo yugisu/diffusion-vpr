@@ -196,17 +196,20 @@ class OneStepSDPipeline(StableDiffusionPipeline):
 
 
 class SDFeaturizer:
-  def __init__(self, sd_id=SD21, null_prompt=""):
-    unet = MyUNet2DConditionModel.from_pretrained(sd_id, subfolder="unet")
-    onestep_pipe = OneStepSDPipeline.from_pretrained(sd_id, unet=unet, safety_checker=None)
+  def __init__(self, sd_id=SD21, null_prompt="", device="cuda"):
+    unet = MyUNet2DConditionModel.from_pretrained(sd_id, subfolder="unet", device=device, low_cpu_mem_usage=False)
+
+    onestep_pipe = OneStepSDPipeline.from_pretrained(sd_id, unet=unet, safety_checker=None, low_cpu_mem_usage=False)
     onestep_pipe.vae.decoder = None
-    onestep_pipe.scheduler = DDIMScheduler.from_pretrained(sd_id, subfolder="scheduler")
-    gc.collect()
-    onestep_pipe = onestep_pipe.to("cuda")
+    onestep_pipe.scheduler = DDIMScheduler.from_pretrained(
+      sd_id, subfolder="scheduler", device=device, low_cpu_mem_usage=False
+    )
+    onestep_pipe = onestep_pipe.to(device)
+
     onestep_pipe.enable_attention_slicing()
     onestep_pipe.enable_xformers_memory_efficient_attention()
     null_prompt_embeds = onestep_pipe._encode_prompt(
-      prompt=null_prompt, device="cuda", num_images_per_prompt=1, do_classifier_free_guidance=False
+      prompt=null_prompt, device=device, num_images_per_prompt=1, do_classifier_free_guidance=False
     )  # [1, 77, dim]
 
     self.null_prompt_embeds = null_prompt_embeds
@@ -225,17 +228,18 @@ class SDFeaturizer:
     Return:
         unet_ft: a torch tensor in the shape of [1, c, h, w]
     """
-    img_tensor = img_tensor.repeat(ensemble_size, 1, 1, 1).cuda()  # ensem, c, h, w
+    batch_size = img_tensor.shape[0]
+    img_tensor = img_tensor.repeat(ensemble_size, 1, 1, 1).cuda()  # [B*E, c, h, w]
     if prompt is None or prompt == self.null_prompt:
       prompt_embeds = self.null_prompt_embeds
     else:
       prompt_embeds = self.pipe._encode_prompt(
         prompt=prompt, device="cuda", num_images_per_prompt=1, do_classifier_free_guidance=False
       )  # [1, 77, dim]
-    prompt_embeds = prompt_embeds.repeat(ensemble_size, 1, 1)
+    prompt_embeds = prompt_embeds.repeat(batch_size * ensemble_size, 1, 1)  # [B*E, 77, dim]
     unet_ft_all = self.pipe(img_tensor=img_tensor, t=t, up_ft_indices=[up_ft_index], prompt_embeds=prompt_embeds)
-    unet_ft = unet_ft_all["up_ft"][up_ft_index]  # ensem, c, h, w
-    unet_ft = unet_ft.mean(0, keepdim=True)  # 1,c,h,w
+    unet_ft = unet_ft_all["up_ft"][up_ft_index]  # [B*E, c, h, w]
+    unet_ft = unet_ft.reshape(ensemble_size, batch_size, *unet_ft.shape[1:]).mean(0)  # [B, c, h, w]
     return unet_ft
 
 
