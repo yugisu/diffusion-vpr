@@ -32,10 +32,12 @@ done
 # System dependencies
 # ============================================================
 
-apt-get update && apt-get install -y unzip gh tmux
-command -v uv &>/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
-command -v claude &>/dev/null || curl -fsSL https://claude.ai/install.sh | bash
-source "$HOME/.local/bin/env"
+which unzip || { apt-get update && apt-get install -y unzip gh tmux; }
+which uv &>/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
+which claude &>/dev/null || curl -fsSL https://claude.ai/install.sh | bash
+which node &>/dev/null || curl -fsSL https://raw.githubusercontent.com/mklement0/n-install/stable/bin/n-install | bash -s 24
+. ~/.bashrc
+which pi &> /dev/null || npm install --global @mariozechner/pi-coding-agent
 
 # ============================================================
 # Git & GitHub auth
@@ -55,10 +57,12 @@ cd /root
 
 [ -d SatDiFuser ] || git clone https://github.com/yugisu/SatDiFuser.git
 cd SatDiFuser && git checkout research && cd ..
-[ -d dift ] || git clone https://github.com/yugisu/dift.git
-cd dift && git checkout research && cd ..
-[ -d diffusion_hyperfeatures ] || git clone https://github.com/diffusion-hyperfeatures/diffusion_hyperfeatures.git
+# [ -d dift ] || git clone https://github.com/yugisu/dift.git
+# cd dift && git checkout research && cd ..
+# [ -d diffusion_hyperfeatures ] || git clone https://github.com/diffusion-hyperfeatures/diffusion_hyperfeatures.git
 # cd diffusion_hyperfeatures && git checkout research && cd ..
+[ -d visual-geolocalization-docs ] || git clone https://github.com/yugisu/visual-geolocalization-docs.git
+[ -d diffusion-autoresearch ] || git clone https://github.com/yugisu/diffusion-autoresearch.git
 
 [ -d diffusion-vpr ] || git clone https://github.com/yugisu/diffusion-vpr.git
 cd diffusion-vpr
@@ -88,15 +92,20 @@ mkdir -p $STATE_DIR/checkpoints/
 # Data
 # ============================================================
 
+unzip_large() {
+  echo "extracting $1"
+  unzip -u "$1" -d "$2" 2>&1 | awk '/(inflating|extracting):/ { if (++n % 25 == 0) { printf "."; fflush() } } END { print "finished!" }'
+}
+
 mkdir -p /workspace/data && cd /workspace/data
 
 # --- VisLoc full dataset ---
-if [ ! -d /workspace/data/visloc ]; then
+if [ ! -f /workspace/data/visloc.zip ]; then
   uvx gdown 16vbbiV93rdQL2v_66ccrxICtROugkw2c -O visloc.zip
-  unzip -q -u visloc.zip -d visloc
-  mv visloc/'satellite_ coordinates_range.csv' visloc/satellite_coordinates_range.csv
-  rm -f visloc.zip
 fi
+
+unzip_large visloc.zip visloc
+mv visloc/'satellite_ coordinates_range.csv' visloc/satellite_coordinates_range.csv
 
 # # --- VisLoc example dataset ---
 # uvx gdown 16tY7tPZiNIoyAhknvyXnp0jAfccIcHtL -O visloc_example.zip
@@ -127,21 +136,7 @@ fi
 mkdir -p /workspace/checkpoints && cd /workspace/checkpoints
 
 # Trimmed DiffusionSat 256 checkpoint at 150k steps
-[ -d /workspace/checkpoints/finetune_sd21_256_sn-satlas-fmow_snr5_md7norm_bs64_trimmed ] || uvx gdown --folder 1VG4yV_fD9UhOa30JzsNRdTwG4cdeJlmX -O finetune_sd21_256_sn-satlas-fmow_snr5_md7norm_bs64_trimmed
-
-# ============================================================
-# VS Code CLI + extensions
-# ============================================================
-
-# curl -Lk 'https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64' -o /tmp/vscode_cli.tar.gz
-# tar -xf /tmp/vscode_cli.tar.gz -C /usr/local/bin/
-# rm /tmp/vscode_cli.tar.gz
-
-# code --install-extension "astral-sh.type"
-# code --install-extension "ms-python.pythonpe"
-# code --install-extension "ms-toolsai.jupyterpe"
-# code --install-extension "charliermarsh.ruffpe"
-# code --install-extension "anthropic.claude-codepe"
+# [ -d /workspace/checkpoints/finetune_sd21_256_sn-satlas-fmow_snr5_md7norm_bs64_trimmed ] || uvx gdown --folder 1VG4yV_fD9UhOa30JzsNRdTwG4cdeJlmX -O finetune_sd21_256_sn-satlas-fmow_snr5_md7norm_bs64_trimmed
 
 
 echo ""
