@@ -32,12 +32,11 @@ done
 # System dependencies
 # ============================================================
 
-which unzip || { apt-get update && apt-get install -y unzip gh tmux; }
+which unzip &>/dev/null || { apt-get update && apt-get install -y unzip gh tmux; }
 which uv &>/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 which claude &>/dev/null || curl -fsSL https://claude.ai/install.sh | bash
-which node &>/dev/null || curl -fsSL https://raw.githubusercontent.com/mklement0/n-install/stable/bin/n-install | bash -s 24
-. ~/.bashrc
-which pi &> /dev/null || npm install --global @mariozechner/pi-coding-agent
+
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
 # ============================================================
 # Git & GitHub auth
@@ -61,18 +60,24 @@ cd SatDiFuser && git checkout research && cd ..
 # cd dift && git checkout research && cd ..
 # [ -d diffusion_hyperfeatures ] || git clone https://github.com/diffusion-hyperfeatures/diffusion_hyperfeatures.git
 # cd diffusion_hyperfeatures && git checkout research && cd ..
+
+[ -d visual-geolocalization ] || git clone https://github.com/yugisu/visual-geolocalization.git
 [ -d visual-geolocalization-docs ] || git clone https://github.com/yugisu/visual-geolocalization-docs.git
 [ -d diffusion-autoresearch ] || git clone https://github.com/yugisu/diffusion-autoresearch.git
-
 [ -d diffusion-vpr ] || git clone https://github.com/yugisu/diffusion-vpr.git
-cd diffusion-vpr
-uv sync
 
-# Populate .env file
-cat > .env <<EOF
+# Populate .env files
+cat > ./diffusion-vpr/.env <<EOF
 VISLOC_ROOT="/workspace/data/visloc"
 SECO_ROOT="/workspace/data/seco_100k/seasonal_contrast_100k"
 DIFFUSIONSAT_256_CHCKPT="/workspace/checkpoints/finetune_sd21_256_sn-satlas-fmow_snr5_md7norm_bs64_trimmed"
+HF_HOME="/workspace/.hugging_face"
+WANDB_API_KEY="$WANDB_API_KEY"
+HF_TOKEN="$HF_TOKEN"
+EOF
+cat > ./visual-geolocalization/.env <<EOF
+DATA_ROOT="/workspace/data/"
+CHECKPOINTS_ROOT="/workspace/checkpoints/"
 HF_HOME="/workspace/.hugging_face"
 WANDB_API_KEY="$WANDB_API_KEY"
 HF_TOKEN="$HF_TOKEN"
